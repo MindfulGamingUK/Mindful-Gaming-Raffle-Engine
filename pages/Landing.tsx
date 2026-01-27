@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Raffle, RaffleType } from '../types';
+import { Raffle, RaffleType, RaffleStatus } from '../types';
 import { fetchActiveRaffles } from '../services/api';
 import { Button } from '../components/Button';
+import { WellnessRotator } from '../components/WellnessRotator';
 
 export const Landing: React.FC = () => {
   const [raffles, setRaffles] = useState<Raffle[]>([]);
@@ -10,13 +11,18 @@ export const Landing: React.FC = () => {
 
   useEffect(() => {
     fetchActiveRaffles().then(data => {
+      // Filter out drawn raffles for the landing page unless we want a "Previous Winners" section
       setRaffles(data);
       setLoading(false);
     });
   }, []);
 
-  const featured = raffles.find(r => r.type === RaffleType.FLAGSHIP) || raffles[0];
-  const micros = raffles.filter(r => r._id !== featured?._id).slice(0, 3);
+  const activeRaffles = raffles.filter(r => r.status === RaffleStatus.ACTIVE);
+  const featured = activeRaffles.find(r => r.type === RaffleType.FLAGSHIP) || activeRaffles[0];
+  const micros = activeRaffles.filter(r => r._id !== featured?._id).slice(0, 3);
+  
+  // Example of closed raffles for a "Winners" ticker could go here
+  const recentWinners = raffles.filter(r => r.status === RaffleStatus.DRAWN || r.status === RaffleStatus.CLOSED);
 
   return (
     <div>
@@ -29,12 +35,11 @@ export const Landing: React.FC = () => {
               Charity No. 1212285
             </span>
             <h1 className="text-4xl md:text-5xl font-bold mb-6 leading-tight">
-              Win Epic Prizes.<br/>
-              <span className="text-brand-teal">Support Healthier Gaming.</span>
+              Real Tech.<br/>
+              <span className="text-brand-teal">Real Impact.</span>
             </h1>
             <p className="text-lg text-gray-300 mb-8 leading-relaxed">
-              Enter our Small Society Lotteries to win gaming tech. 
-              Net proceeds directly fund mental health support and awareness campaigns for gamers.
+              Win the latest consoles. Net proceeds directly fund Gaming Disorder awareness and support.
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
                <Link to="/draws">
@@ -64,7 +69,7 @@ export const Landing: React.FC = () => {
                    <span>{featured.maxTickets - featured.soldTickets} left</span>
                  </div>
                  <Link to={`/draw/${featured.slug}`}>
-                   <Button className="w-full">Enter Now</Button>
+                   <Button className="w-full">Enter Draw</Button>
                  </Link>
                </div>
             </div>
@@ -72,12 +77,17 @@ export const Landing: React.FC = () => {
         </div>
       </section>
 
+      {/* DYNAMIC WELLNESS SECTION (Replaces Static Ads) */}
+      <section className="max-w-5xl mx-auto px-4 -mt-8 relative z-20">
+         <WellnessRotator />
+      </section>
+
       {/* MICRO DRAWS */}
       <section className="py-16 max-w-5xl mx-auto px-4">
         <div className="flex justify-between items-end mb-8">
            <div>
-             <h2 className="text-2xl font-bold text-brand-dark">Micro-Draws</h2>
-             <p className="text-gray-500 text-sm">Limited entry pools. Better odds. Quick draws.</p>
+             <h2 className="text-2xl font-bold text-brand-dark">Latest Consoles</h2>
+             <p className="text-gray-500 text-sm">Official inventory. Brand new & sealed.</p>
            </div>
            <Link to="/draws" className="text-brand-purple font-bold text-sm hover:underline">View All</Link>
         </div>
@@ -117,28 +127,24 @@ export const Landing: React.FC = () => {
         </div>
       </section>
 
-      {/* MINDFUL SECTION */}
-      <section className="bg-gray-100 py-16">
-        <div className="max-w-3xl mx-auto px-4 text-center">
-          <h2 className="text-2xl font-bold text-brand-dark mb-4">Gaming is better with balance.</h2>
-          <p className="text-gray-600 mb-8">
-            We aren't just here for prizes. We want to help you maintain a healthy relationship with play.
-            Take a moment to check in with yourself.
-          </p>
-          <div className="grid sm:grid-cols-2 gap-4">
-            <div className="bg-white p-6 rounded-xl border border-gray-200">
-               <h4 className="font-bold text-brand-purple mb-2">Self-Check Tool</h4>
-               <p className="text-sm text-gray-500 mb-4">How balanced was your gaming week?</p>
-               <Button variant="secondary" className="w-full">Start Check-in</Button>
-            </div>
-            <div className="bg-white p-6 rounded-xl border border-gray-200">
-               <h4 className="font-bold text-brand-purple mb-2">Resources</h4>
-               <p className="text-sm text-gray-500 mb-4">Tips for breaks, sleep, and focus.</p>
-               <Button variant="secondary" className="w-full">Read Articles</Button>
+      {/* WINNERS TICKER (New) */}
+      {recentWinners.length > 0 && (
+        <section className="bg-gray-100 py-12 border-t border-gray-200">
+          <div className="max-w-5xl mx-auto px-4">
+            <h3 className="font-bold text-center text-gray-400 uppercase tracking-widest text-sm mb-6">Recent Winners</h3>
+            <div className="flex flex-wrap justify-center gap-4">
+              {recentWinners.map(w => (
+                 <div key={w._id} className="bg-white px-6 py-3 rounded-full shadow-sm flex items-center gap-3">
+                    <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                    <span className="font-bold text-gray-900">{w.winnerPublicId || 'Anonymous'}</span>
+                    <span className="text-gray-400 text-sm">won</span>
+                    <span className="text-brand-purple text-sm font-medium truncate max-w-[150px]">{w.title}</span>
+                 </div>
+              ))}
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
     </div>
   );
 };
