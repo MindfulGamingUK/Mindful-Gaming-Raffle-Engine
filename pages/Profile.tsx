@@ -33,7 +33,6 @@ export const Profile: React.FC = () => {
   }
 
   const handleSave = async () => {
-    // Only allow save if 18+ valid
     if (dob && !isOver18(dob)) {
       alert("Date of birth indicates you are under 18.");
       return;
@@ -43,8 +42,6 @@ export const Profile: React.FC = () => {
       dob,
       marketingConsent: marketing,
       spendingLimitMonthly: spendingLimit === '' ? undefined : Number(spendingLimit)
-      // Note: We do NOT allow un-setting residencyConfirmed here via UI to prevent accidents,
-      // but strictly it's a one-way gate in the purchase flow usually.
     });
     setEditing(false);
   };
@@ -77,15 +74,8 @@ export const Profile: React.FC = () => {
              <div className="space-y-4">
                 <div>
                    <label className="block text-xs font-bold text-gray-700 mb-1">Date of Birth</label>
-                   <input 
-                      type="date" 
-                      value={dob}
-                      onChange={(e) => setDob(e.target.value)}
-                      disabled={!editing}
-                      className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-brand-purple disabled:bg-gray-50 disabled:text-gray-500"
-                   />
+                   <input type="date" value={dob} onChange={(e) => setDob(e.target.value)} disabled={!editing} className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-brand-purple disabled:bg-gray-50 disabled:text-gray-500"/>
                 </div>
-                
                 <div className="flex justify-between items-center p-3 bg-gray-50 rounded border border-gray-100">
                     <span className="text-sm text-gray-700">Residency Status</span>
                     <span className={`text-sm font-bold ${user.residencyConfirmed ? 'text-green-600' : 'text-gray-400'}`}>
@@ -97,33 +87,15 @@ export const Profile: React.FC = () => {
              <div className="space-y-4">
                  <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Monthly Spend Limit (£)</label>
-                    <input 
-                      type="number" 
-                      value={spendingLimit}
-                      onChange={(e) => setSpendingLimit(e.target.value ? parseInt(e.target.value) : '')}
-                      disabled={!editing}
-                      placeholder="No limit"
-                      className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-brand-purple disabled:bg-gray-50"
-                    />
+                    <input type="number" value={spendingLimit} onChange={(e) => setSpendingLimit(e.target.value ? parseInt(e.target.value) : '')} disabled={!editing} placeholder="No limit" className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-brand-purple disabled:bg-gray-50"/>
                     <p className="text-[10px] text-gray-400 mt-1">Optional tool to manage your play.</p>
                  </div>
-                 
                  <div className="flex items-center gap-3 pt-2">
-                    <input 
-                      type="checkbox" 
-                      id="marketing"
-                      checked={marketing}
-                      onChange={(e) => setMarketing(e.target.checked)}
-                      disabled={!editing}
-                      className="w-4 h-4 text-brand-purple rounded"
-                    />
-                    <label htmlFor="marketing" className="text-sm text-gray-600">
-                      I agree to receive marketing emails
-                    </label>
+                    <input type="checkbox" id="marketing" checked={marketing} onChange={(e) => setMarketing(e.target.checked)} disabled={!editing} className="w-4 h-4 text-brand-purple rounded" />
+                    <label htmlFor="marketing" className="text-sm text-gray-600">I agree to receive marketing emails</label>
                  </div>
              </div>
           </div>
-
           <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
              {editing ? (
                 <>
@@ -142,11 +114,14 @@ export const Profile: React.FC = () => {
         <h3 className="text-red-800 font-bold mb-2">Responsible Gaming</h3>
         <p className="text-sm text-red-700 mb-4 max-w-2xl leading-relaxed">
           Mindful Gaming UK is committed to safe play. If you feel you need a break, you can trigger a self-exclusion period. 
-          This will prevent you from entering any draws for 6 months. This action cannot be undone.
+          This will prevent you from entering any draws for 6 months.
         </p>
-        <Button variant="danger" onClick={() => alert('Self-exclusion flow would start here.')}>
-          Self-Exclude for 6 Months
-        </Button>
+        <div className="flex items-center gap-4 bg-white p-4 rounded border border-red-100">
+            <span className="text-xs font-bold text-gray-500">Status: Active</span>
+            <Button variant="danger" onClick={() => alert('Feature coming soon with Backend Integration.')}>
+              Self-Exclude for 6 Months
+            </Button>
+        </div>
       </div>
     </div>
   );

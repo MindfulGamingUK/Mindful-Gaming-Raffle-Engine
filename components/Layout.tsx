@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { getShellMode } from '../utils/shell';
+import { isUsingDefaultConfig } from '../utils/config';
 import { ComplianceBlock } from './ComplianceBlock';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -8,6 +9,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   const location = useLocation();
   const shellMode = getShellMode();
   const { user, login, logout } = useAuth();
+  const showDevWarning = isUsingDefaultConfig() && process.env.NODE_ENV !== 'production';
   
   const NavLink = ({ to, label }: { to: string, label: string }) => (
     <Link 
@@ -50,7 +52,6 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         <div className="col-span-2">
           <h5 className="text-white font-bold mb-4">Mindful Gaming UK</h5>
           <p className="mb-4 text-gray-500">Promoting mental wellness through the love of gaming.</p>
-          {/* Standalone Compliance Block */}
           <div className="bg-white/5 p-4 rounded-lg">
              <ComplianceBlock variant="MINIMAL" />
           </div>
@@ -79,41 +80,43 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
     </footer>
   );
 
-  // EMBEDDED MODE
-  if (shellMode === 'EMBEDDED') {
-    return (
-      <div className="min-h-[50vh] flex flex-col bg-transparent font-sans text-gray-900">
-        {/* Mobile Mini Header for Embedded Context */}
-        <div className="bg-white/80 backdrop-blur border-b border-gray-200 p-3 flex justify-between items-center md:hidden sticky top-0 z-40">
-           <Link to="/" className="font-bold text-brand-purple flex items-center gap-2">
-             <span className="w-6 h-6 bg-brand-purple text-white rounded flex items-center justify-center text-xs">M</span>
-             MGUK
-           </Link>
-           <div className="flex gap-4 text-xs font-medium">
-             <Link to="/draws">Draws</Link>
-             {user ? <Link to="/profile">Profile</Link> : <button onClick={() => login()}>Login</button>}
-           </div>
-        </div>
-        
-        <main className="flex-grow w-full max-w-5xl mx-auto md:px-4 md:py-6 animate-fadeIn pb-8">
-          {children}
-          {/* Embedded Compliance Block - Always visible at bottom of content */}
-          <div className="mt-12 bg-gray-50 rounded-lg">
-            <ComplianceBlock variant="MINIMAL" />
-          </div>
-        </main>
-      </div>
-    );
-  }
-
-  // STANDALONE MODE
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50 text-gray-900 font-sans">
-      <Header />
-      <main className="flex-grow">
-        {children}
-      </main>
-      <BigFooter />
-    </div>
+    <>
+      {showDevWarning && (
+        <div className="bg-orange-500 text-white text-xs text-center py-1 font-bold">
+           DEV MODE: Using Default Config / Mock API
+        </div>
+      )}
+
+      {shellMode === 'EMBEDDED' ? (
+        <div className="min-h-[50vh] flex flex-col bg-transparent font-sans text-gray-900">
+          <div className="bg-white/80 backdrop-blur border-b border-gray-200 p-3 flex justify-between items-center md:hidden sticky top-0 z-40">
+             <Link to="/" className="font-bold text-brand-purple flex items-center gap-2">
+               <span className="w-6 h-6 bg-brand-purple text-white rounded flex items-center justify-center text-xs">M</span>
+               MGUK
+             </Link>
+             <div className="flex gap-4 text-xs font-medium">
+               <Link to="/draws">Draws</Link>
+               {user ? <Link to="/profile">Profile</Link> : <button onClick={() => login()}>Login</button>}
+             </div>
+          </div>
+          
+          <main className="flex-grow w-full max-w-5xl mx-auto md:px-4 md:py-6 animate-fadeIn pb-8">
+            {children}
+            <div className="mt-12 bg-gray-50 rounded-lg">
+              <ComplianceBlock variant="MINIMAL" />
+            </div>
+          </main>
+        </div>
+      ) : (
+        <div className="min-h-screen flex flex-col bg-gray-50 text-gray-900 font-sans">
+          <Header />
+          <main className="flex-grow">
+            {children}
+          </main>
+          <BigFooter />
+        </div>
+      )}
+    </>
   );
 };

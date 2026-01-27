@@ -8,18 +8,18 @@
  */
 
 const ASSET_REGISTRY: Record<string, string> = {
-    // Bundles - Local Paths
-    'PRIZE_PS5_PRO': '/assets/prizes/bundle_ps5_pro.jpg',
-    'PRIZE_STEAM_DECK': '/assets/prizes/bundle_steam_deck.jpg',
-    'PRIZE_XBOX_SERIES': '/assets/prizes/bundle_xbox_series.jpg',
-    'PRIZE_SWITCH_OLED': '/assets/prizes/bundle_switch_oled.jpg',
-    'PRIZE_PC_SETUP': '/assets/prizes/bundle_pc_setup.jpg',
-    'PRIZE_RETRO_COLLECTION': '/assets/prizes/bundle_retro_collection.jpg',
-    'PRIZE_ACCESSORIES': '/assets/prizes/bundle_accessories_pro.jpg',
+    // Bundles - Local SVGs for Prototype/Dev
+    'PRIZE_PS5_PRO': '/assets/prizes/bundle_ps5_pro.svg',
+    'PRIZE_STEAM_DECK': '/assets/prizes/bundle_steam_deck.svg',
+    'PRIZE_XBOX_SERIES': '/assets/prizes/bundle_xbox_series.svg',
+    'PRIZE_SWITCH_OLED': '/assets/prizes/placeholder.svg', // Fallback for now
+    'PRIZE_PC_SETUP': '/assets/prizes/placeholder.svg',
+    'PRIZE_RETRO_COLLECTION': '/assets/prizes/placeholder.svg',
+    'PRIZE_ACCESSORIES': '/assets/prizes/placeholder.svg',
     
     // UI Elements
-    'HERO_BG': '/assets/prizes/hero_bg.jpg',
-    'PLACEHOLDER': '/assets/prizes/placeholder.jpg'
+    'HERO_BG': '/assets/prizes/hero_bg.svg',
+    'PLACEHOLDER': '/assets/prizes/placeholder.svg'
   };
   
   export const getAsset = (key: string): string => {
