@@ -19,6 +19,7 @@ const ASSET_REGISTRY: Record<string, string> = {
     
     // UI Elements
     'HERO_BG': '/assets/prizes/hero_bg.svg',
+    'hero_bg': '/assets/prizes/hero_bg.svg', // Alias for backward compatibility
     'PLACEHOLDER': '/assets/prizes/placeholder.svg'
   };
   

@@ -26,7 +26,7 @@ Authentication is managed via `AuthContext`, bridging the React App to Wix Velo 
 
 ## 4. Compliance "Single Source of Truth"
 The `ComplianceBlock` component adapts its layout based on Shell Mode, ensuring the following copy is always visible:
-> "Mindful Gaming UK (Charity No. ...) Registered with [Local Authority] ... Entries are NOT charitable donations and are not Gift Aid eligible. 18+ Only."
+> "Mindful Gaming UK (Charity No. ...) Registered with [Local Authority] (Ref: ...) Not a Donation: Ticket purchases are a form of gambling and are not Gift Aid eligible. 18+ ONLY | GB RESIDENTS ONLY"
 
 ## 5. Routes
 - `/`: Landing (Embeddable)

@@ -167,7 +167,7 @@ export const Landing: React.FC = () => {
                 <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm text-2xl">⚖️</div>
                 <h3 className="font-bold text-gray-900 mb-2">Regulated</h3>
                 <p className="text-sm text-gray-500">
-                  Registered with {config.localAuthorityName}. Fully compliant with the Gambling Act 2005.
+                  Registered with {config.localAuthorityName} (Ref: {config.lotteryRegistrationRef}). Fully compliant with the Gambling Act 2005.
                 </p>
             </div>
             <div>
