@@ -30,14 +30,14 @@ export interface ProductSpec {
 
 export interface Raffle {
   _id: string;
-  wixProductId?: string; // Link to Wix Stores Inventory
+  wixProductId?: string; 
+  assetKey: string; // References image in utils/assets.ts
   type: RaffleType;
   theme: RaffleTheme;
   title: string;
   slug: string;
   description: string;
-  specs?: ProductSpec; // Detailed console specs
-  imageUrl: string;
+  specs?: ProductSpec;
   ticketPrice: number;
   maxTickets: number;
   soldTickets: number;
@@ -45,25 +45,31 @@ export interface Raffle {
   closeDate: string;
   drawDate: string;
   status: RaffleStatus;
+  
+  // Compliance / Legal
   promoterName: string;
   promoterAddress: string;
-  localAuthority: string;
-  licenceNumber: string;
-  projectedDonation: number;
+  localAuthority: string; // e.g. Birmingham City Council
+  lotteryRegistrationRef: string; // The specific lottery licence ref
+  charityNumber: string; // The charity registration number
+  
+  projectedDonation: number; // Percentage
   prizesValue: number;
   cashAlternative?: number;
+  
   // Winner Fields
   winningTicketNumber?: number;
-  winnerPublicId?: string; // e.g., "Alex G."
+  winnerPublicId?: string;
 }
 
 export interface UserProfile {
-  _id: string; // Wix Member ID
+  _id: string;
   email: string;
   firstName?: string;
   lastName?: string;
-  dob?: string; // ISO String YYYY-MM-DD
-  residencyConfirmed?: boolean; // Must be GB
+  dob?: string; // ISO YYYY-MM-DD
+  residencyConfirmed?: boolean; // STRICT explicit consent
+  termsAcceptedAt?: string; // ISO Date
   marketingConsent?: boolean;
   selfExclusionEndDate?: string | null;
   spendingLimitMonthly?: number;
@@ -72,10 +78,10 @@ export interface UserProfile {
 export interface Entry {
   _id: string;
   raffleId: string;
-  raffleTitle?: string;
+  raffleTitle: string;
   ticketNumbers: number[];
   purchaseDate: string;
-  status: 'CONFIRMED' | 'WINNER' | 'VOID';
+  status: 'PENDING' | 'CONFIRMED' | 'WINNER' | 'VOID';
   totalPaid: number;
 }
 

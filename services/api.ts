@@ -6,6 +6,7 @@ let MOCK_PROFILE: UserProfile | null = null;
 const MOCK_RAFFLES: Raffle[] = [
   {
     _id: 'raf_ps5_pro',
+    assetKey: 'bundle_ps5_pro',
     wixProductId: 'inv_ps5_001',
     type: RaffleType.FLAGSHIP,
     theme: 'DEFAULT',
@@ -18,7 +19,6 @@ const MOCK_RAFFLES: Raffle[] = [
       condition: 'NEW',
       retailValue: 799.99
     },
-    imageUrl: 'https://images.unsplash.com/photo-1606813907291-d86efa9b94db?auto=format&fit=crop&q=80&w=1000',
     ticketPrice: 3.50,
     maxTickets: 2000,
     soldTickets: 1420,
@@ -29,13 +29,15 @@ const MOCK_RAFFLES: Raffle[] = [
     promoterName: 'Jane Doe, Trustee',
     promoterAddress: 'Mindful Gaming UK, B1 1AA',
     localAuthority: 'Birmingham City Council',
-    licenceNumber: '1212285',
+    lotteryRegistrationRef: 'LN/12345',
+    charityNumber: '1212285',
     projectedDonation: 65,
     prizesValue: 950,
     cashAlternative: 800
   },
   {
     _id: 'raf_deck_oled',
+    assetKey: 'bundle_steam_deck',
     wixProductId: 'inv_steam_002',
     type: RaffleType.MICRO,
     theme: 'NEON',
@@ -48,10 +50,9 @@ const MOCK_RAFFLES: Raffle[] = [
       condition: 'NEW',
       retailValue: 569.00
     },
-    imageUrl: 'https://images.unsplash.com/photo-1697666952899-73d84ba54593?auto=format&fit=crop&q=80&w=1000',
     ticketPrice: 4.00,
     maxTickets: 400,
-    soldTickets: 395, // Nearly sold out
+    soldTickets: 395, 
     openDate: '2025-05-10T09:00:00Z',
     closeDate: '2025-05-20T23:59:59Z',
     drawDate: '2025-05-21T12:00:00Z',
@@ -59,13 +60,15 @@ const MOCK_RAFFLES: Raffle[] = [
     promoterName: 'Jane Doe, Trustee',
     promoterAddress: 'Mindful Gaming UK, B1 1AA',
     localAuthority: 'Birmingham City Council',
-    licenceNumber: '1212285',
+    lotteryRegistrationRef: 'LN/12345',
+    charityNumber: '1212285',
     projectedDonation: 60,
     prizesValue: 569,
     cashAlternative: 500
   },
   {
     _id: 'raf_xbox_closed',
+    assetKey: 'bundle_xbox_x',
     wixProductId: 'inv_xbox_003',
     type: RaffleType.MICRO,
     theme: 'CALM',
@@ -78,7 +81,6 @@ const MOCK_RAFFLES: Raffle[] = [
       condition: 'NEW',
       retailValue: 479.99
     },
-    imageUrl: 'https://images.unsplash.com/photo-1621259182902-885f6e3a5728?auto=format&fit=crop&q=80&w=1000',
     ticketPrice: 2.50,
     maxTickets: 1000,
     soldTickets: 1000,
@@ -89,7 +91,8 @@ const MOCK_RAFFLES: Raffle[] = [
     promoterName: 'Jane Doe, Trustee',
     promoterAddress: 'Mindful Gaming UK, B1 1AA',
     localAuthority: 'Birmingham City Council',
-    licenceNumber: '1212285',
+    lotteryRegistrationRef: 'LN/12345',
+    charityNumber: '1212285',
     projectedDonation: 60,
     prizesValue: 480,
     winningTicketNumber: 482,
@@ -109,9 +112,8 @@ const MOCK_ENTRIES: Entry[] = [
   }
 ];
 
-// --- Services ---
+// --- Velo / Antigravity Boundary Adapters ---
 
-// Simulates Wix Member Login
 export const login = async (): Promise<UserProfile> => {
   MOCK_PROFILE = {
     _id: 'member_123',
@@ -128,7 +130,8 @@ export const logout = async (): Promise<void> => {
 };
 
 export const getSession = async (): Promise<UserProfile | null> => {
-  return new Promise((resolve) => setTimeout(() => resolve(MOCK_PROFILE), 400));
+  // Simulate network delay
+  return new Promise((resolve) => setTimeout(() => resolve(MOCK_PROFILE), 300));
 };
 
 export const updateProfile = async (updates: Partial<UserProfile>): Promise<UserProfile> => {
@@ -138,20 +141,21 @@ export const updateProfile = async (updates: Partial<UserProfile>): Promise<User
 };
 
 export const fetchActiveRaffles = async (): Promise<Raffle[]> => {
-  return new Promise((resolve) => setTimeout(() => resolve(MOCK_RAFFLES), 600));
+  return new Promise((resolve) => setTimeout(() => resolve(MOCK_RAFFLES), 400));
 };
 
 export const fetchRaffleBySlug = async (slug: string): Promise<Raffle | undefined> => {
   return new Promise((resolve) => {
-    setTimeout(() => resolve(MOCK_RAFFLES.find(r => r.slug === slug)), 400);
+    setTimeout(() => resolve(MOCK_RAFFLES.find(r => r.slug === slug)), 300);
   });
 };
 
 export const fetchMyEntries = async (): Promise<Entry[]> => {
-  return new Promise((resolve) => setTimeout(() => resolve(MOCK_ENTRIES), 800));
+  return new Promise((resolve) => setTimeout(() => resolve(MOCK_ENTRIES), 600));
 };
 
 export const fetchMindfulContent = async (): Promise<MindfulContent> => {
+  // In production, fetch this from a CMS collection
   const content: MindfulContent[] = [
     {
       id: 'mc_1',
@@ -176,9 +180,11 @@ export const createEntryIntent = async (
   provider: PaymentProvider
 ): Promise<{ paymentUrl: string }> => {
   console.log('Intent Created:', { raffleId, quantity, provider, user: MOCK_PROFILE?._id });
+  
+  // Simulate checkout URL generation
   return new Promise((resolve) => {
     setTimeout(() => resolve({ 
-      paymentUrl: provider === PaymentProvider.STRIPE ? 'https://stripe.com' : 'https://paypal.com' 
-    }), 1500);
+      paymentUrl: '#' // In a real app, this redirects to Stripe/PayPal or Wix Pay
+    }), 1000);
   });
 };

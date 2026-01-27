@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Raffle, RaffleType, RaffleStatus } from '../types';
 import { fetchActiveRaffles } from '../services/api';
+import { getAsset } from '../utils/assets';
+import { calculateProgress, formatCurrency } from '../utils/formatting';
 import { Button } from '../components/Button';
 import { WellnessRotator } from '../components/WellnessRotator';
 
@@ -11,7 +13,6 @@ export const Landing: React.FC = () => {
 
   useEffect(() => {
     fetchActiveRaffles().then(data => {
-      // Filter out drawn raffles for the landing page unless we want a "Previous Winners" section
       setRaffles(data);
       setLoading(false);
     });
@@ -20,56 +21,58 @@ export const Landing: React.FC = () => {
   const activeRaffles = raffles.filter(r => r.status === RaffleStatus.ACTIVE);
   const featured = activeRaffles.find(r => r.type === RaffleType.FLAGSHIP) || activeRaffles[0];
   const micros = activeRaffles.filter(r => r._id !== featured?._id).slice(0, 3);
-  
-  // Example of closed raffles for a "Winners" ticker could go here
-  const recentWinners = raffles.filter(r => r.status === RaffleStatus.DRAWN || r.status === RaffleStatus.CLOSED);
 
   return (
-    <div>
-      {/* HERO */}
-      <section className="bg-brand-dark text-white py-16 md:py-24 relative overflow-hidden">
-        <div className="absolute inset-0 bg-brand-purple opacity-10 pattern-dots"></div>
-        <div className="max-w-5xl mx-auto px-4 relative z-10 text-center md:text-left md:flex items-center justify-between gap-12">
-          <div className="max-w-xl">
-            <span className="inline-block bg-brand-teal text-brand-dark text-xs font-bold px-3 py-1 rounded-full mb-4">
-              Charity No. 1212285
-            </span>
-            <h1 className="text-4xl md:text-5xl font-bold mb-6 leading-tight">
-              Real Tech.<br/>
-              <span className="text-brand-teal">Real Impact.</span>
+    <div className="space-y-16">
+      {/* HERO SECTION */}
+      <section className="bg-brand-dark rounded-3xl overflow-hidden relative shadow-2xl mx-4 md:mx-0">
+        <div className="absolute inset-0">
+          <img src={getAsset('hero_bg')} className="w-full h-full object-cover opacity-20 mix-blend-overlay" alt="Background" />
+          <div className="absolute inset-0 bg-gradient-to-r from-brand-dark via-brand-dark/90 to-transparent"></div>
+        </div>
+        
+        <div className="relative z-10 px-8 py-16 md:py-24 md:px-12 flex flex-col md:flex-row items-center gap-12">
+          <div className="max-w-xl text-center md:text-left">
+            <div className="inline-flex items-center gap-2 bg-white/10 text-white/90 text-xs font-bold px-3 py-1 rounded-full mb-6 border border-white/20">
+              <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
+              Regulated Charity Lottery
+            </div>
+            <h1 className="text-4xl md:text-6xl font-extrabold text-white mb-6 leading-tight tracking-tight">
+              Win Tech. <br/>
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-teal to-green-400">Support Wellness.</span>
             </h1>
             <p className="text-lg text-gray-300 mb-8 leading-relaxed">
-              Win the latest consoles. Net proceeds directly fund Gaming Disorder awareness and support.
+              Genuine raffle draws for the latest gaming gear. Net proceeds directly fund Gaming Disorder awareness and support services across the UK.
             </p>
-            <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex flex-col sm:flex-row gap-4 justify-center md:justify-start">
                <Link to="/draws">
-                 <Button className="w-full sm:w-auto text-lg px-8 py-3">View Active Draws</Button>
+                 <Button className="w-full sm:w-auto text-lg px-8 py-4 shadow-lg shadow-brand-purple/30">View Active Draws</Button>
                </Link>
                <Link to="/transparency">
-                 <Button variant="secondary" className="w-full sm:w-auto bg-transparent text-white border-gray-600 hover:bg-gray-800">
+                 <Button variant="secondary" className="w-full sm:w-auto bg-white/5 border-white/20 text-white hover:bg-white/10 backdrop-blur-sm">
                    How it works
                  </Button>
                </Link>
             </div>
           </div>
-          
+
           {/* Featured Card */}
           {featured && (
-            <div className="hidden md:block w-80 bg-white rounded-xl shadow-2xl overflow-hidden text-gray-900 transform rotate-2 hover:rotate-0 transition-transform duration-300">
-               <div className="h-40 bg-gray-200 relative">
-                 <img src={featured.imageUrl} className="w-full h-full object-cover" alt={featured.title} />
-                 <div className="absolute top-2 right-2 bg-brand-purple text-white text-xs font-bold px-2 py-1 rounded">
-                   Main Event
+            <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl overflow-hidden transform md:rotate-3 hover:rotate-0 transition-transform duration-500 border-4 border-white/10">
+               <div className="h-48 relative">
+                 <img src={getAsset(featured.assetKey)} className="w-full h-full object-cover" alt={featured.title} />
+                 <div className="absolute top-4 right-4 bg-brand-purple text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">
+                   Featured
                  </div>
                </div>
-               <div className="p-5">
-                 <h3 className="font-bold text-lg mb-2 leading-tight">{featured.title}</h3>
-                 <div className="flex justify-between text-sm text-gray-500 mb-4">
-                   <span>£{featured.ticketPrice.toFixed(2)} / ticket</span>
-                   <span>{featured.maxTickets - featured.soldTickets} left</span>
+               <div className="p-6">
+                 <h3 className="font-bold text-xl text-gray-900 mb-2 leading-tight">{featured.title}</h3>
+                 <div className="flex justify-between items-center text-sm text-gray-500 mb-6">
+                   <span>{formatCurrency(featured.ticketPrice)} per ticket</span>
+                   <span className="text-brand-purple font-medium">{featured.maxTickets - featured.soldTickets} remaining</span>
                  </div>
                  <Link to={`/draw/${featured.slug}`}>
-                   <Button className="w-full">Enter Draw</Button>
+                   <Button className="w-full py-3">Enter Draw</Button>
                  </Link>
                </div>
             </div>
@@ -77,48 +80,53 @@ export const Landing: React.FC = () => {
         </div>
       </section>
 
-      {/* DYNAMIC WELLNESS SECTION (Replaces Static Ads) */}
-      <section className="max-w-5xl mx-auto px-4 -mt-8 relative z-20">
+      {/* WELLNESS / ADS REPLACEMENT */}
+      <section className="max-w-4xl mx-auto px-4">
          <WellnessRotator />
       </section>
 
-      {/* MICRO DRAWS */}
-      <section className="py-16 max-w-5xl mx-auto px-4">
-        <div className="flex justify-between items-end mb-8">
+      {/* CATALOGUE TEASER */}
+      <section className="px-4">
+        <div className="flex justify-between items-end mb-8 border-b border-gray-100 pb-4">
            <div>
-             <h2 className="text-2xl font-bold text-brand-dark">Latest Consoles</h2>
-             <p className="text-gray-500 text-sm">Official inventory. Brand new & sealed.</p>
+             <h2 className="text-2xl font-bold text-gray-900">Latest Draws</h2>
+             <p className="text-gray-500 text-sm mt-1">Limited tickets. Fixed odds. No extensions.</p>
            </div>
-           <Link to="/draws" className="text-brand-purple font-bold text-sm hover:underline">View All</Link>
+           <Link to="/draws" className="text-brand-purple font-bold text-sm hover:underline flex items-center gap-1">
+             View All <span aria-hidden="true">&rarr;</span>
+           </Link>
         </div>
 
         <div className="grid md:grid-cols-3 gap-6">
           {loading ? (
-            [1,2,3].map(i => <div key={i} className="h-64 bg-gray-100 rounded-xl animate-pulse"></div>)
+            [1,2,3].map(i => <div key={i} className="h-72 bg-gray-100 rounded-xl animate-pulse"></div>)
           ) : (
             micros.map(raffle => (
-              <Link key={raffle._id} to={`/draw/${raffle.slug}`} className="group block bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-lg transition-shadow">
-                <div className="h-40 relative overflow-hidden">
-                  <img src={raffle.imageUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt={raffle.title} />
-                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-4">
-                    <span className="text-white text-xs font-bold bg-brand-teal px-2 py-1 rounded-sm">
+              <Link key={raffle._id} to={`/draw/${raffle.slug}`} className="group block bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-xl transition-all duration-300">
+                <div className="h-48 relative overflow-hidden bg-gray-100">
+                  <img src={getAsset(raffle.assetKey)} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" alt={raffle.title} />
+                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4 translate-y-2 group-hover:translate-y-0 transition-transform">
+                    <span className="text-white text-xs font-bold bg-brand-teal px-2 py-1 rounded">
                       {raffle.maxTickets} Tickets Max
                     </span>
                   </div>
                 </div>
-                <div className="p-4">
-                  <h3 className="font-bold text-gray-900 mb-2 truncate">{raffle.title}</h3>
-                  <div className="w-full bg-gray-100 rounded-full h-1.5 mb-2">
-                    <div 
-                      className="bg-brand-purple h-1.5 rounded-full" 
-                      style={{ width: `${(raffle.soldTickets / raffle.maxTickets) * 100}%` }}
-                    ></div>
+                <div className="p-5">
+                  <h3 className="font-bold text-gray-900 mb-3 truncate" title={raffle.title}>{raffle.title}</h3>
+                  
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="flex-grow bg-gray-100 rounded-full h-1.5">
+                        <div 
+                        className="bg-brand-purple h-1.5 rounded-full" 
+                        style={{ width: `${calculateProgress(raffle.soldTickets, raffle.maxTickets)}%` }}
+                        ></div>
+                    </div>
+                    <span className="text-xs font-bold text-gray-400">{Math.round(calculateProgress(raffle.soldTickets, raffle.maxTickets))}%</span>
                   </div>
-                  <div className="flex justify-between items-center mt-4">
-                    <span className="font-bold text-brand-dark">£{raffle.ticketPrice.toFixed(2)}</span>
-                    <span className="text-xs text-gray-500">
-                      {raffle.status === 'SOLD_OUT' ? 'Sold Out' : 'Enter >'}
-                    </span>
+
+                  <div className="flex justify-between items-center mt-4 pt-4 border-t border-gray-50">
+                    <span className="font-bold text-xl text-brand-dark">{formatCurrency(raffle.ticketPrice)}</span>
+                    <span className="text-sm font-medium text-brand-purple group-hover:underline">Enter Draw</span>
                   </div>
                 </div>
               </Link>
@@ -127,24 +135,26 @@ export const Landing: React.FC = () => {
         </div>
       </section>
 
-      {/* WINNERS TICKER (New) */}
-      {recentWinners.length > 0 && (
-        <section className="bg-gray-100 py-12 border-t border-gray-200">
-          <div className="max-w-5xl mx-auto px-4">
-            <h3 className="font-bold text-center text-gray-400 uppercase tracking-widest text-sm mb-6">Recent Winners</h3>
-            <div className="flex flex-wrap justify-center gap-4">
-              {recentWinners.map(w => (
-                 <div key={w._id} className="bg-white px-6 py-3 rounded-full shadow-sm flex items-center gap-3">
-                    <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                    <span className="font-bold text-gray-900">{w.winnerPublicId || 'Anonymous'}</span>
-                    <span className="text-gray-400 text-sm">won</span>
-                    <span className="text-brand-purple text-sm font-medium truncate max-w-[150px]">{w.title}</span>
-                 </div>
-              ))}
+      {/* TRUST & INFO */}
+      <section className="bg-gray-50 rounded-3xl p-8 md:p-12 mx-4 md:mx-0">
+        <div className="grid md:grid-cols-3 gap-8 text-center">
+            <div>
+                <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm text-2xl">⚖️</div>
+                <h3 className="font-bold text-gray-900 mb-2">Regulated</h3>
+                <p className="text-sm text-gray-500">Licensed by Birmingham City Council. Fully compliant with the Gambling Act 2005.</p>
             </div>
-          </div>
-        </section>
-      )}
+            <div>
+                <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm text-2xl">🤝</div>
+                <h3 className="font-bold text-gray-900 mb-2">Transparency</h3>
+                <p className="text-sm text-gray-500">We publish expenses and donation splits for every draw. No hidden fees.</p>
+            </div>
+            <div>
+                <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm text-2xl">🛡️</div>
+                <h3 className="font-bold text-gray-900 mb-2">Safer Gaming</h3>
+                <p className="text-sm text-gray-500">Tools to manage your spend. We prioritize your wellbeing over ticket sales.</p>
+            </div>
+        </div>
+      </section>
     </div>
   );
 };

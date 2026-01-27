@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { UserProfile } from '../types';
 import { getSession, login as apiLogin, logout as apiLogout, updateProfile as apiUpdateProfile } from '../services/api';
+import { isOver18 } from '../utils/formatting';
 
 interface AuthContextType {
   user: UserProfile | null;
@@ -8,7 +9,7 @@ interface AuthContextType {
   login: () => Promise<void>;
   logout: () => Promise<void>;
   updateUser: (updates: Partial<UserProfile>) => Promise<void>;
-  isProfileComplete: boolean;
+  isEligible: boolean; // True if 18+ AND GB Resident
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -26,7 +27,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async () => {
     setLoading(true);
-    // In real app, this redirects to Wix Login or opens Wix Login Modal
     const u = await apiLogin();
     setUser(u);
     setLoading(false);
@@ -44,11 +44,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(updated);
   };
 
-  // Profile is complete if DOB and Residency are confirmed
-  const isProfileComplete = !!(user && user.dob && user.residencyConfirmed);
+  // STRICT Eligibility Check
+  const isEligible = !!(
+    user && 
+    user.dob && isOver18(user.dob) && 
+    user.residencyConfirmed === true
+  );
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, updateUser, isProfileComplete }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, updateUser, isEligible }}>
       {children}
     </AuthContext.Provider>
   );
