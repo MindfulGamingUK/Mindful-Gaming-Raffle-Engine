@@ -8,17 +8,17 @@ export const EntryStatus: React.FC = () => {
   const { intentId } = useParams<{ intentId: string }>();
   const [status, setStatus] = useState<EntryIntent['status']>('PENDING');
   const [tickets, setTickets] = useState<number[]>([]);
+  
+  // Use a ref to track the timeout ID for clean cancellation
+  const timerRef = useRef<number | null>(null);
   const isMounted = useRef(true);
 
   useEffect(() => {
     isMounted.current = true;
-    return () => { isMounted.current = false; };
-  }, []);
-
-  useEffect(() => {
-    if (!intentId) return;
-
+    
     const poll = async () => {
+      if (!intentId) return;
+      
       try {
         const result = await getEntryIntentStatus(intentId);
         
@@ -31,17 +31,23 @@ export const EntryStatus: React.FC = () => {
           setStatus('FAILED');
         } else {
           // Keep polling if pending
-          setTimeout(poll, 2000);
+          timerRef.current = window.setTimeout(poll, 2500);
         }
       } catch (error) {
         if (isMounted.current) {
-          console.error("Polling failed", error);
+          console.error("Polling error", error);
           setStatus('FAILED');
         }
       }
     };
 
     poll();
+
+    // Cleanup: Cancel timeout and prevent state updates
+    return () => {
+      isMounted.current = false;
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
   }, [intentId]);
 
   return (
@@ -49,9 +55,9 @@ export const EntryStatus: React.FC = () => {
       {status === 'PENDING' && (
         <div className="animate-fadeIn">
           <div className="w-16 h-16 border-4 border-brand-purple border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Confirming Entry...</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Finalizing Entry...</h2>
           <p className="text-gray-500 max-w-sm mx-auto">
-            Please wait while we secure your tickets with the payment provider. This usually takes a few seconds.
+            Payment confirmation can take a moment. Please stay on this page while we verify with the provider.
           </p>
         </div>
       )}
@@ -63,16 +69,18 @@ export const EntryStatus: React.FC = () => {
           <p className="text-gray-500 mb-8 max-w-sm mx-auto">
             We couldn't confirm the transaction. No funds have been taken and no tickets were issued.
           </p>
-          <Link to="/draws"><Button>Return to Draws</Button></Link>
+          <div className="flex justify-center gap-4">
+            <Link to="/draws"><Button>Return to Draws</Button></Link>
+          </div>
         </div>
       )}
 
       {status === 'SUCCESS' && (
         <div className="animate-fadeIn">
           <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6 text-4xl shadow-sm">✓</div>
-          <h2 className="text-3xl font-bold text-gray-900 mb-4">Entry Confirmed!</h2>
+          <h2 className="text-3xl font-bold text-gray-900 mb-4">You're In!</h2>
           <p className="text-gray-600 mb-8">
-            Good luck! We've sent a receipt and ticket record to your email.
+            Good luck! We've sent a ticket receipt to your email.
           </p>
           
           <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm mb-8">

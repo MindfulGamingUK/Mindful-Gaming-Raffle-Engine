@@ -12,10 +12,10 @@ export const ComplianceBlock: React.FC<Props> = ({ variant }) => {
   return (
     <div className={`text-center text-xs text-gray-500 ${isMinimal ? 'py-4 border-t border-gray-100' : 'py-8'}`}>
       <div className="max-w-4xl mx-auto px-4">
-        {/* Legal Identity */}
+        {/* Legal Identity - Strictly "Registered with" for Small Society Lotteries */}
         <p className="mb-3 font-medium">
           Mindful Gaming UK (Charity No. {config.charityNumber}). <br className="sm:hidden" />
-          Registered with {config.localAuthorityName} (Ref: {config.lotteryRegistrationRef}).
+          Registered with {config.localAuthorityName} (Small Society Lottery ref: {config.lotteryRegistrationRef}).
         </p>
 
         {/* Warning Block */}

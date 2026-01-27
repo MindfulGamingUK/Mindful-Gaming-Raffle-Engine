@@ -1,11 +1,10 @@
 /**
  * ASSET REGISTRY
  * 
- * Logical mapping of prize keys to local static assets.
- * Images must be placed in `public/assets/prizes/`.
+ * Maps logical keys to LOCAL static assets.
+ * No external hotlinks allowed in production.
  * 
- * FALLBACK: If an image is missing, the UI should gracefully handle it
- * or show a generic placeholder.
+ * Images should be placed in `public/assets/prizes/`.
  */
 
 const ASSET_REGISTRY: Record<string, string> = {
@@ -15,6 +14,8 @@ const ASSET_REGISTRY: Record<string, string> = {
     'PRIZE_XBOX_SERIES': '/assets/prizes/bundle_xbox_series.jpg',
     'PRIZE_SWITCH_OLED': '/assets/prizes/bundle_switch_oled.jpg',
     'PRIZE_PC_SETUP': '/assets/prizes/bundle_pc_setup.jpg',
+    'PRIZE_RETRO_COLLECTION': '/assets/prizes/bundle_retro_collection.jpg',
+    'PRIZE_ACCESSORIES': '/assets/prizes/bundle_accessories_pro.jpg',
     
     // UI Elements
     'HERO_BG': '/assets/prizes/hero_bg.jpg',

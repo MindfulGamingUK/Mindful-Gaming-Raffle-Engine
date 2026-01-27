@@ -4,9 +4,9 @@ import { getConfig } from './config';
 /**
  * Determines if the SPA is running standalone or embedded within a Wix Site.
  * Priority:
- * 1. URL Param (Dev override)
+ * 1. URL Param (Dev override: ?shell=standalone)
  * 2. Window Config (Wix Velo Injection)
- * 3. DOM Attribute (Custom Element Prop)
+ * 3. DOM Attribute (Custom Element Prop data-mode="standalone")
  * 4. Default to EMBEDDED
  */
 export const getShellMode = (): ShellMode => {
@@ -24,7 +24,7 @@ export const getShellMode = (): ShellMode => {
     return 'STANDALONE';
   }
 
-  // 3. Attribute check on root
+  // 3. Attribute check on root (if passed via Custom Element props)
   const root = document.getElementById('root');
   if (root?.getAttribute('data-mode') === 'standalone') {
     return 'STANDALONE';

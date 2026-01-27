@@ -1,9 +1,11 @@
 import React from 'react';
 import { Button } from '../components/Button';
 import { Link } from 'react-router-dom';
-import { formatCurrency } from '../utils/formatting';
+import { getConfig } from '../utils/config';
 
 export const Transparency: React.FC = () => {
+  const config = getConfig();
+
   return (
     <div className="max-w-4xl mx-auto px-4 py-12">
       <div className="text-center mb-12">
@@ -15,14 +17,14 @@ export const Transparency: React.FC = () => {
 
       <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-200 mb-12">
         <div className="p-8 md:p-12">
-            <h2 className="text-xl font-bold mb-8 text-center">Allocation per Ticket (Average)</h2>
+            <h2 className="text-xl font-bold mb-8 text-center">Revenue Allocation (Example)</h2>
             
             <div className="space-y-8">
                 {/* Charitable Purpose */}
                 <div className="relative">
                     <div className="flex justify-between items-end mb-2">
                         <span className="font-bold text-brand-purple text-lg">Net Proceeds (Charitable Purpose)</span>
-                        <span className="font-bold text-xl">60%</span>
+                        <span className="font-bold text-xl">~60%</span>
                     </div>
                     <div className="w-full bg-gray-100 rounded-full h-6">
                         <div className="bg-brand-purple h-6 rounded-full flex items-center justify-end px-3 text-white text-xs font-bold" style={{ width: '60%' }}>
@@ -37,7 +39,7 @@ export const Transparency: React.FC = () => {
                 <div className="relative">
                     <div className="flex justify-between items-end mb-2">
                         <span className="font-bold text-gray-700 text-lg">Prizes & Operations</span>
-                        <span className="font-bold text-xl">25%</span>
+                        <span className="font-bold text-xl">~25%</span>
                     </div>
                     <div className="w-full bg-gray-100 rounded-full h-6">
                         <div className="bg-brand-teal h-6 rounded-full flex items-center justify-end px-3 text-white text-xs font-bold" style={{ width: '25%' }}>
@@ -52,7 +54,7 @@ export const Transparency: React.FC = () => {
                 <div className="relative">
                     <div className="flex justify-between items-end mb-2">
                         <span className="font-bold text-gray-500 text-lg">Transaction Fees & Audits</span>
-                        <span className="font-bold text-xl">15%</span>
+                        <span className="font-bold text-xl">~15%</span>
                     </div>
                     <div className="w-full bg-gray-100 rounded-full h-6">
                         <div className="bg-gray-400 h-6 rounded-full flex items-center justify-end px-3 text-white text-xs font-bold" style={{ width: '15%' }}>
@@ -66,8 +68,8 @@ export const Transparency: React.FC = () => {
         </div>
         <div className="bg-gray-50 p-6 border-t border-gray-200 text-center text-sm text-gray-500">
             <p>
-                Mindful Gaming UK is a registered charity (No. 1212285). 
-                Financial returns are submitted annually to the Charity Commission and Birmingham City Council.
+                Mindful Gaming UK is a registered charity (No. {config.charityNumber}). 
+                Financial returns are submitted annually to the Charity Commission and {config.localAuthorityName}.
             </p>
         </div>
       </div>

@@ -1,7 +1,9 @@
 import React from 'react';
-import { Button } from '../components/Button';
+import { getConfig } from '../utils/config';
 
 export const Support: React.FC = () => {
+  const config = getConfig();
+
   return (
     <div className="max-w-4xl mx-auto px-4 py-12">
       <h1 className="text-3xl font-bold text-brand-dark mb-2">Support Centre</h1>
@@ -13,7 +15,10 @@ export const Support: React.FC = () => {
             
             <div className="border border-gray-200 rounded-lg p-5">
                <h3 className="font-bold text-gray-900 mb-2">Is this a real charity lottery?</h3>
-               <p className="text-sm text-gray-600">Yes. Mindful Gaming UK is a registered charity (1212285). We operate as a Small Society Lottery licensed by Birmingham City Council.</p>
+               <p className="text-sm text-gray-600">
+                 Yes. Mindful Gaming UK is a registered charity (No. {config.charityNumber}). 
+                 We operate as a Small Society Lottery registered with {config.localAuthorityName} (Ref: {config.lotteryRegistrationRef}).
+               </p>
             </div>
 
             <div className="border border-gray-200 rounded-lg p-5">
