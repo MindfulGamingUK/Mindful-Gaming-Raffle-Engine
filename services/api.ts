@@ -1,4 +1,4 @@
-import { Raffle, RaffleStatus, RaffleType, PaymentProvider, MindfulContent, UserProfile, Entry } from '../types';
+import { Raffle, RaffleStatus, RaffleType, PaymentProvider, MindfulContent, UserProfile, Entry, EntryIntent } from '../types';
 
 // Mock Data
 let MOCK_PROFILE: UserProfile | null = null;
@@ -6,7 +6,7 @@ let MOCK_PROFILE: UserProfile | null = null;
 const MOCK_RAFFLES: Raffle[] = [
   {
     _id: 'raf_ps5_pro',
-    assetKey: 'bundle_ps5_pro',
+    assetKey: 'PRIZE_PS5_PRO',
     wixProductId: 'inv_ps5_001',
     type: RaffleType.FLAGSHIP,
     theme: 'DEFAULT',
@@ -37,7 +37,7 @@ const MOCK_RAFFLES: Raffle[] = [
   },
   {
     _id: 'raf_deck_oled',
-    assetKey: 'bundle_steam_deck',
+    assetKey: 'PRIZE_STEAM_DECK',
     wixProductId: 'inv_steam_002',
     type: RaffleType.MICRO,
     theme: 'NEON',
@@ -68,7 +68,7 @@ const MOCK_RAFFLES: Raffle[] = [
   },
   {
     _id: 'raf_xbox_closed',
-    assetKey: 'bundle_xbox_x',
+    assetKey: 'PRIZE_XBOX_SERIES',
     wixProductId: 'inv_xbox_003',
     type: RaffleType.MICRO,
     theme: 'CALM',
@@ -130,7 +130,6 @@ export const logout = async (): Promise<void> => {
 };
 
 export const getSession = async (): Promise<UserProfile | null> => {
-  // Simulate network delay
   return new Promise((resolve) => setTimeout(() => resolve(MOCK_PROFILE), 300));
 };
 
@@ -155,7 +154,6 @@ export const fetchMyEntries = async (): Promise<Entry[]> => {
 };
 
 export const fetchMindfulContent = async (): Promise<MindfulContent> => {
-  // In production, fetch this from a CMS collection
   const content: MindfulContent[] = [
     {
       id: 'mc_1',
@@ -178,13 +176,29 @@ export const createEntryIntent = async (
   raffleId: string, 
   quantity: number, 
   provider: PaymentProvider
-): Promise<{ paymentUrl: string }> => {
+): Promise<{ paymentUrl: string, intentId: string }> => {
   console.log('Intent Created:', { raffleId, quantity, provider, user: MOCK_PROFILE?._id });
-  
-  // Simulate checkout URL generation
+  const intentId = `intent_${Date.now()}`;
   return new Promise((resolve) => {
     setTimeout(() => resolve({ 
-      paymentUrl: '#' // In a real app, this redirects to Stripe/PayPal or Wix Pay
+      intentId,
+      // In production, this URL goes to Stripe/PayPal. 
+      // For Prototype, we redirect to our own status page.
+      paymentUrl: `/#/status/${intentId}` 
     }), 1000);
+  });
+};
+
+export const getEntryIntentStatus = async (intentId: string): Promise<EntryIntent> => {
+  return new Promise((resolve) => {
+    // Simulate polling delay
+    setTimeout(() => {
+        resolve({
+            intentId,
+            paymentUrl: '',
+            status: 'SUCCESS',
+            ticketNumbers: [Math.floor(Math.random() * 2000) + 1000]
+        });
+    }, 1500);
   });
 };

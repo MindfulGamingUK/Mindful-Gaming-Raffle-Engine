@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { getShellMode } from '../utils/shell';
-import { ComplianceFooter } from './ComplianceFooter';
+import { ComplianceBlock } from './ComplianceBlock';
 import { useAuth } from '../contexts/AuthContext';
 
 export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -29,7 +29,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         <div className="hidden md:flex items-center gap-8">
           <NavLink to="/draws" label="Draws" />
           <NavLink to="/transparency" label="Transparency" />
-          <NavLink to="/my-entries" label="My Entries" />
+          <NavLink to="/support" label="Support" />
           {user ? (
             <Link to="/profile" className="w-8 h-8 rounded-full bg-brand-teal text-white flex items-center justify-center hover:bg-teal-600 transition ring-2 ring-offset-2 ring-transparent hover:ring-brand-teal/30">
               <span className="text-xs font-bold">{user.firstName?.charAt(0) || 'U'}</span>
@@ -50,12 +50,16 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         <div className="col-span-2">
           <h5 className="text-white font-bold mb-4">Mindful Gaming UK</h5>
           <p className="mb-4 text-gray-500">Promoting mental wellness through the love of gaming.</p>
-          <ComplianceFooter mode="STANDALONE" />
+          {/* Standalone Compliance Block */}
+          <div className="bg-white/5 p-4 rounded-lg">
+             <ComplianceBlock variant="MINIMAL" />
+          </div>
         </div>
         <div>
           <h5 className="text-white font-bold mb-4">Support</h5>
           <ul className="space-y-2">
             <li><Link to="/transparency" className="hover:text-white transition">Where funds go</Link></li>
+            <li><Link to="/support" className="hover:text-white transition">FAQ & Contact</Link></li>
             <li><a href="https://www.begambleaware.org" target="_blank" className="hover:text-white transition">BeGambleAware.org</a></li>
           </ul>
         </div>
@@ -91,10 +95,12 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
            </div>
         </div>
         
-        <main className="flex-grow w-full max-w-5xl mx-auto md:px-4 md:py-6 animate-fadeIn">
+        <main className="flex-grow w-full max-w-5xl mx-auto md:px-4 md:py-6 animate-fadeIn pb-8">
           {children}
-          {/* Compliance Footer is FORCED here for Embedded mode */}
-          <ComplianceFooter mode="EMBEDDED" />
+          {/* Embedded Compliance Block - Always visible at bottom of content */}
+          <div className="mt-12 bg-gray-50 rounded-lg">
+            <ComplianceBlock variant="MINIMAL" />
+          </div>
         </main>
       </div>
     );

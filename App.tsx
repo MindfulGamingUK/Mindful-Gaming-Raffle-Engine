@@ -8,6 +8,8 @@ import { RaffleDetail } from './pages/RaffleDetail';
 import { Profile } from './pages/Profile';
 import { Transparency } from './pages/Transparency';
 import { MyEntries } from './pages/MyEntries';
+import { EntryStatus } from './pages/EntryStatus';
+import { Support } from './pages/Support';
 
 const App: React.FC = () => {
   return (
@@ -18,8 +20,10 @@ const App: React.FC = () => {
             <Route path="/" element={<Landing />} />
             <Route path="/draws" element={<DrawsCatalogue />} />
             <Route path="/draw/:slug" element={<RaffleDetail />} />
+            <Route path="/status/:intentId" element={<EntryStatus />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/transparency" element={<Transparency />} />
+            <Route path="/support" element={<Support />} />
             <Route path="/my-entries" element={<MyEntries />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

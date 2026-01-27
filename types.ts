@@ -31,7 +31,7 @@ export interface ProductSpec {
 export interface Raffle {
   _id: string;
   wixProductId?: string; 
-  assetKey: string; // References image in utils/assets.ts
+  assetKey: string; // Key in AssetRegistry
   type: RaffleType;
   theme: RaffleTheme;
   title: string;
@@ -49,9 +49,9 @@ export interface Raffle {
   // Compliance / Legal
   promoterName: string;
   promoterAddress: string;
-  localAuthority: string; // e.g. Birmingham City Council
-  lotteryRegistrationRef: string; // The specific lottery licence ref
-  charityNumber: string; // The charity registration number
+  localAuthority: string;
+  lotteryRegistrationRef: string;
+  charityNumber: string;
   
   projectedDonation: number; // Percentage
   prizesValue: number;
@@ -60,6 +60,7 @@ export interface Raffle {
   // Winner Fields
   winningTicketNumber?: number;
   winnerPublicId?: string;
+  winnerTown?: string;
 }
 
 export interface UserProfile {
@@ -83,6 +84,13 @@ export interface Entry {
   purchaseDate: string;
   status: 'PENDING' | 'CONFIRMED' | 'WINNER' | 'VOID';
   totalPaid: number;
+}
+
+export interface EntryIntent {
+  intentId: string;
+  paymentUrl: string;
+  status: 'PENDING' | 'SUCCESS' | 'FAILED';
+  ticketNumbers?: number[];
 }
 
 export interface MindfulContent {

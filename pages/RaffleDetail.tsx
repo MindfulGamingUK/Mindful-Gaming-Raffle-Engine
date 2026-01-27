@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Raffle, PaymentProvider, MindfulContent, RaffleStatus } from '../types';
-import { fetchRaffleBySlug, createEntryIntent, fetchMindfulContent, updateProfile } from '../services/api';
+import { fetchRaffleBySlug, createEntryIntent, fetchMindfulContent } from '../services/api';
 import { getAsset } from '../utils/assets';
 import { formatCurrency, calculateProgress, isOver18 } from '../utils/formatting';
 import { useAuth } from '../contexts/AuthContext';
@@ -9,7 +9,7 @@ import { Button } from '../components/Button';
 import { TransparencyPanel } from '../components/TransparencyPanel';
 import { MindfulMoment } from '../components/MindfulMoment';
 
-type Step = 'OVERVIEW' | 'PROFILE_GATE' | 'MINDFUL' | 'CART' | 'PAYMENT' | 'CONFIRMATION';
+type Step = 'OVERVIEW' | 'PROFILE_GATE' | 'MINDFUL' | 'CART' | 'PAYMENT';
 
 export const RaffleDetail: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -52,7 +52,6 @@ export const RaffleDetail: React.FC = () => {
   const handleStartEntry = () => {
     if (!user) {
       login(); // Opens Wix Login
-      // In real life, we wait for auth state change
     } else if (!isEligible) {
       setStep('PROFILE_GATE');
     } else {
@@ -86,10 +85,16 @@ export const RaffleDetail: React.FC = () => {
     if (!raffle || !user) return;
     setSubmitting(true);
     try {
+      // In production, this redirects to Stripe. 
+      // In this prototype, it returns a URL to our local /status/:id page
       const { paymentUrl } = await createEntryIntent(raffle._id, quantity, provider);
-      // For now, simulate success:
-      // window.location.href = paymentUrl;
-      setStep('CONFIRMATION');
+      
+      // Navigate to the status page to simulate 3DSecure/Processing
+      if (paymentUrl.startsWith('/')) {
+         navigate(paymentUrl);
+      } else {
+         window.location.href = paymentUrl;
+      }
     } catch (e) {
       alert("Payment initiation failed.");
       setSubmitting(false);
@@ -324,18 +329,6 @@ export const RaffleDetail: React.FC = () => {
                     
                     <button onClick={() => setStep('CART')} className="w-full text-sm text-gray-500 mt-2 hover:underline">Back to Quantity</button>
                 </div>
-                )}
-
-                {/* STEP 6: MOCK CONFIRMATION */}
-                {step === 'CONFIRMATION' && (
-                    <div className="text-center animate-fadeIn py-6">
-                        <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">
-                            ✓
-                        </div>
-                        <h3 className="font-bold text-xl text-gray-900 mb-2">Order Processing</h3>
-                        <p className="text-gray-600 text-sm mb-6">Your tickets are being minted. You will receive an email confirmation shortly.</p>
-                        <Button onClick={() => navigate('/my-entries')}>View My Wallet</Button>
-                    </div>
                 )}
                 </>
              )}

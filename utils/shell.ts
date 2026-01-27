@@ -2,22 +2,27 @@ import { ShellMode } from '../types';
 
 /**
  * Determines if the SPA is running standalone or embedded within a Wix Site.
- * 
- * Priority:
- * 1. URL Param `?shell=standalone` (for dev/testing)
- * 2. Default: `EMBEDDED` (Safety first - avoids double headers in prod)
  */
 export const getShellMode = (): ShellMode => {
   if (typeof window === 'undefined') return 'EMBEDDED';
 
+  // 1. Explicit URL Override (Dev)
   const params = new URLSearchParams(window.location.search);
   if (params.get('shell') === 'standalone') {
     return 'STANDALONE';
   }
 
-  // Future: Check for specific Custom Element attributes if passed
-  // const element = document.getElementById('mindful-raffle-root');
-  // if (element?.getAttribute('mode') === 'standalone') return 'STANDALONE';
+  // 2. Global Config Injection (Production Wix Velo injection)
+  if ((window as any).__MGUK_CONFIG__?.mode === 'STANDALONE') {
+    return 'STANDALONE';
+  }
 
+  // 3. Attribute check on root (if passed via Custom Element props)
+  const root = document.getElementById('root');
+  if (root?.getAttribute('data-mode') === 'standalone') {
+    return 'STANDALONE';
+  }
+
+  // Default to Embedded (Safety first - avoids double headers)
   return 'EMBEDDED';
 };
