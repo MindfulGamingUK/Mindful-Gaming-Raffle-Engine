@@ -1,251 +1,253 @@
 import React, { useState, useEffect } from 'react';
-import { Raffle, PaymentProvider, MindfulContent } from '../types';
-import { fetchRaffleById, createEntryIntent, fetchMindfulContent } from '../services/api';
+import { useParams, useNavigate } from 'react-router-dom';
+import { Raffle, PaymentProvider, MindfulContent, UserProfile } from '../types';
+import { fetchRaffleBySlug, createEntryIntent, fetchMindfulContent, getSession, updateProfile } from '../services/api';
 import { Button } from '../components/Button';
-import { AgeGate } from '../components/AgeGate';
 import { ComplianceFooter } from '../components/ComplianceFooter';
 import { TransparencyPanel } from '../components/TransparencyPanel';
 import { MindfulMoment } from '../components/MindfulMoment';
 
-type Step = 'DETAILS' | 'AGE_GATE' | 'MINDFUL_CHECK' | 'PAYMENT';
+type Step = 'OVERVIEW' | 'AUTH_CHECK' | 'MINDFUL_INTERACTION' | 'QUANTITY' | 'PAYMENT';
 
 export const RaffleDetail: React.FC = () => {
-  const [raffle, setRaffle] = useState<Raffle | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [currentStep, setCurrentStep] = useState<Step>('DETAILS');
-  const [mindfulContent, setMindfulContent] = useState<MindfulContent | null>(null);
-
-  // Cart State
-  const [quantity, setQuantity] = useState(1);
+  const { slug } = useParams<{ slug: string }>();
+  const navigate = useNavigate();
   
-  // User Form State
-  const [dob, setDob] = useState('');
-  const [isOver18, setIsOver18] = useState(false);
-  const [email, setEmail] = useState('');
-  const [agreed, setAgreed] = useState(false);
+  const [raffle, setRaffle] = useState<Raffle | null>(null);
+  const [user, setUser] = useState<UserProfile | null>(null);
+  const [step, setStep] = useState<Step>('OVERVIEW');
+  const [mindfulContent, setMindfulContent] = useState<MindfulContent | null>(null);
+  
+  // Cart
+  const [quantity, setQuantity] = useState(1);
   const [submitting, setSubmitting] = useState(false);
 
+  // Progressive Profile State
+  const [dobInput, setDobInput] = useState('');
+  const [agreed, setAgreed] = useState(false);
+
   useEffect(() => {
-    // Parallel fetch for raffle and mindful content
+    if (!slug) return;
     Promise.all([
-      fetchRaffleById('mock_id'),
+      fetchRaffleBySlug(slug),
+      getSession(),
       fetchMindfulContent()
-    ]).then(([raffleData, contentData]) => {
-      setRaffle(raffleData || null);
-      setMindfulContent(contentData);
-      setLoading(false);
+    ]).then(([r, u, m]) => {
+      setRaffle(r || null);
+      setUser(u);
+      setMindfulContent(m);
+      if (u?.dob) setDobInput(u.dob);
     });
-  }, []);
+  }, [slug]);
+
+  const handleStartEntry = () => {
+    if (!user) {
+      // Simulate Wix Login Modal trigger
+      alert("Please Log In (Simulating Wix Member Login)");
+      getSession().then(u => {
+        if (u) {
+          setUser(u);
+          setStep('AUTH_CHECK');
+        }
+      });
+    } else {
+      setStep('AUTH_CHECK');
+    }
+  };
+
+  const handleProfileUpdate = async () => {
+    // 18+ Logic
+    const age = new Date().getFullYear() - new Date(dobInput).getFullYear();
+    if (age < 18) {
+      alert("You must be 18+ to enter.");
+      return;
+    }
+    
+    setSubmitting(true);
+    await updateProfile({ dob: dobInput, residencyConfirmed: true });
+    setUser(prev => prev ? ({ ...prev, dob: dobInput, residencyConfirmed: true }) : null);
+    setSubmitting(false);
+    setStep('MINDFUL_INTERACTION');
+  };
 
   const handlePayment = async (provider: PaymentProvider) => {
-    if (!raffle) return;
+    if (!raffle || !user) return;
     setSubmitting(true);
     try {
-      const result = await createEntryIntent(raffle._id, quantity, provider, { email, dob });
-      // Redirect to external payment provider
-      window.location.href = result.paymentUrl;
-    } catch (err) {
-      alert('Error initiating secure checkout. Please try again.');
+      const { paymentUrl } = await createEntryIntent(raffle._id, quantity, provider);
+      window.location.href = paymentUrl;
+    } catch (e) {
+      alert("Payment initiation failed.");
       setSubmitting(false);
     }
   };
 
-  if (loading) return <div className="flex justify-center p-12 text-brand-purple animate-pulse">Loading Experience...</div>;
-  if (!raffle) return <div className="text-center p-12">Raffle not found.</div>;
-
-  const totalCost = (quantity * raffle.ticketPrice).toFixed(2);
-  const percentSold = Math.min(100, (raffle.soldTickets / raffle.maxTickets) * 100);
+  if (!raffle) return <div className="p-12 text-center">Loading...</div>;
 
   return (
-    <div className="max-w-2xl mx-auto p-4 md:p-6 bg-white shadow-xl rounded-xl my-8 border-t-4 border-brand-purple">
+    <div className="max-w-4xl mx-auto p-4 md:p-8">
       
-      {/* --- HEADER SECTION --- */}
-      <div className="mb-6">
-        <h1 className="text-2xl md:text-3xl font-bold text-brand-dark mb-2">{raffle.title}</h1>
-        <div className="flex items-center gap-4 text-sm text-gray-500">
-           <span className="bg-gray-100 px-2 py-1 rounded">Draws: {new Date(raffle.drawDate).toLocaleDateString()}</span>
-           <span className="font-semibold text-brand-purple">£{raffle.ticketPrice.toFixed(2)} / ticket</span>
-        </div>
+      {/* Breadcrumbs */}
+      <div className="mb-4 text-sm text-gray-500">
+        <button onClick={() => navigate('/draws')} className="hover:underline">Draws</button>
+        <span className="mx-2">/</span>
+        <span className="text-gray-900 font-medium">{raffle.title}</span>
       </div>
 
-      {/* --- PROGRESS VISUAL --- */}
-      <div className="mb-6">
-        <div className="w-full bg-gray-200 rounded-full h-1.5 mb-2">
-          <div className="bg-brand-teal h-1.5 rounded-full" style={{ width: `${percentSold}%` }}></div>
-        </div>
-        <p className="text-xs text-gray-400 text-right">{raffle.soldTickets} tickets sold of {raffle.maxTickets}</p>
-      </div>
-
-      {/* --- DYNAMIC JOURNEY CONTENT --- */}
-      <div className="min-h-[400px]">
+      <div className="grid md:grid-cols-12 gap-8">
         
-        {/* STEP 1: DETAILS & SELECTION */}
-        {currentStep === 'DETAILS' && (
-          <div className="animate-fadeIn">
-            <div className="relative h-48 rounded-lg overflow-hidden mb-6 bg-gray-100">
-               <img src={raffle.imageUrl} alt="Prize" className="w-full h-full object-cover" />
-            </div>
-            
-            <p className="text-gray-700 leading-relaxed mb-6">{raffle.description}</p>
-            
-            <TransparencyPanel 
-              ticketPrice={raffle.ticketPrice} 
-              projectedDonationPercent={raffle.projectedDonation} 
-            />
-
-            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-6">
-              <label className="block text-sm font-bold text-brand-dark mb-3 text-center">
-                How many chances to win?
-              </label>
-              <div className="flex justify-center items-center gap-4 mb-4">
-                <button 
-                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                  className="w-10 h-10 rounded-full bg-white border border-gray-300 text-xl font-bold hover:bg-gray-100 text-brand-dark"
-                >-</button>
-                <div className="text-center">
-                  <span className="block text-2xl font-bold text-brand-purple">{quantity}</span>
-                  <span className="text-xs text-gray-500">Tickets</span>
-                </div>
-                <button 
-                  onClick={() => setQuantity(Math.min(20, quantity + 1))} // Cap per transaction for responsibility
-                  className="w-10 h-10 rounded-full bg-white border border-gray-300 text-xl font-bold hover:bg-gray-100 text-brand-dark"
-                >+</button>
-              </div>
-              <div className="text-center text-lg font-bold text-brand-dark">
-                Total: £{totalCost}
-              </div>
-            </div>
-
-            <Button className="w-full" onClick={() => setCurrentStep('AGE_GATE')}>
-              Continue to Entry
-            </Button>
-          </div>
-        )}
-
-        {/* STEP 2: AGE & ELIGIBILITY GATE */}
-        {currentStep === 'AGE_GATE' && (
-          <div className="animate-fadeIn py-4">
-            <h2 className="text-xl font-bold text-brand-dark mb-4">Eligibility Check</h2>
-            <p className="text-sm text-gray-600 mb-6">
-              To comply with the UK Gambling Act 2005, we must verify you are 18 or over. 
-              Underage gambling is an offence.
-            </p>
-
-            <div className="space-y-6">
-              <AgeGate 
-                dob={dob} 
-                onDobChange={setDob} 
-                onVerified={setIsOver18} 
-              />
-
-              <div className="space-y-3">
-                 <label className="block text-sm font-medium text-gray-700">Your Email (for ticket delivery)</label>
-                 <input 
-                   type="email" 
-                   value={email}
-                   onChange={(e) => setEmail(e.target.value)}
-                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-purple focus:outline-none"
-                   placeholder="jane@example.com"
-                 />
-              </div>
-
-              <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-lg">
-                <input 
-                  type="checkbox" 
-                  id="terms" 
-                  checked={agreed} 
-                  onChange={(e) => setAgreed(e.target.checked)}
-                  className="mt-1 h-5 w-5 text-brand-purple rounded border-gray-300 focus:ring-brand-purple"
-                />
-                <label htmlFor="terms" className="text-xs text-gray-600">
-                  I confirm I am 18+, a resident of Great Britain, and I understand this purchase is a raffle entry, 
-                  <span className="font-bold text-red-600"> NOT a donation eligible for Gift Aid</span>.
-                </label>
-              </div>
-
-              <div className="flex gap-3">
-                <Button variant="secondary" onClick={() => setCurrentStep('DETAILS')} className="flex-1">
-                  Back
-                </Button>
-                <Button 
-                  className="flex-1"
-                  disabled={!isOver18 || !email || !agreed}
-                  onClick={() => setCurrentStep('MINDFUL_CHECK')}
-                >
-                  Confirm Eligibility
-                </Button>
-              </div>
+        {/* LEFT COLUMN: Visuals & Info */}
+        <div className="md:col-span-7">
+          <div className="relative rounded-xl overflow-hidden shadow-lg mb-6 group">
+            <img src={raffle.imageUrl} alt={raffle.title} className="w-full h-64 md:h-80 object-cover" />
+            <div className="absolute top-4 left-4 bg-white/90 backdrop-blur px-3 py-1 rounded-full text-xs font-bold text-brand-dark">
+              {raffle.type === 'MICRO' ? 'Micro-Draw' : 'Main Event'}
             </div>
           </div>
-        )}
 
-        {/* STEP 3: MINDFUL PAUSE (INTERACTIVE LAYER) */}
-        {currentStep === 'MINDFUL_CHECK' && (
-          <div className="py-8">
-            {mindfulContent ? (
-              <MindfulMoment 
-                content={mindfulContent} 
-                onComplete={() => setCurrentStep('PAYMENT')} 
-              />
-            ) : (
-              // Fallback if content fails to load
-              <div className="text-center">
-                <p className="mb-4">Proceeding to checkout...</p>
-                <Button onClick={() => setCurrentStep('PAYMENT')}>Continue</Button>
-              </div>
+          <div className="prose prose-sm prose-purple max-w-none mb-8">
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">{raffle.title}</h1>
+            <p className="text-gray-600">{raffle.description}</p>
+            {raffle.cashAlternative && (
+               <p className="text-xs text-gray-500 italic bg-gray-50 p-2 border-l-2 border-brand-teal inline-block">
+                 Alternative prize value: £{raffle.cashAlternative.toFixed(2)}. 
+                 <span className="ml-1 text-gray-400">Winning implies acceptance of Terms.</span>
+               </p>
             )}
           </div>
-        )}
 
-        {/* STEP 4: PAYMENT PROVIDER SELECTION */}
-        {currentStep === 'PAYMENT' && (
-          <div className="animate-fadeIn py-4">
-            <h2 className="text-xl font-bold text-brand-dark mb-2">Secure Payment</h2>
-            <div className="bg-blue-50 border border-blue-100 p-3 rounded text-sm text-blue-800 mb-6">
-              You are purchasing <strong>{quantity}</strong> ticket(s) for <strong>£{totalCost}</strong>.
-            </div>
+          <TransparencyPanel ticketPrice={raffle.ticketPrice} projectedDonationPercent={raffle.projectedDonation} />
+        </div>
 
-            <div className="space-y-4">
-              <button
-                onClick={() => handlePayment(PaymentProvider.STRIPE)}
-                disabled={submitting}
-                className={`w-full flex items-center justify-center gap-3 p-4 rounded-lg border transition-all duration-200 
-                  ${submitting ? 'opacity-50 cursor-not-allowed bg-gray-100' : 'bg-[#635BFF] text-white hover:bg-[#4b45c6] shadow-md hover:shadow-lg'}`}
-              >
-                {/* SVG for Stripe would go here */}
-                <span className="font-bold">Pay with Card (Stripe)</span>
-              </button>
+        {/* RIGHT COLUMN: The Journey Card */}
+        <div className="md:col-span-5">
+           <div className="bg-white border border-gray-200 shadow-xl rounded-xl p-6 sticky top-24">
+             
+             {/* HEADER */}
+             <div className="flex justify-between items-center mb-6 border-b border-gray-100 pb-4">
+                <div>
+                  <div className="text-xs text-gray-500 uppercase tracking-wide font-bold">Ticket Price</div>
+                  <div className="text-2xl font-bold text-brand-purple">£{raffle.ticketPrice.toFixed(2)}</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-xs text-gray-500 uppercase tracking-wide font-bold">Closing</div>
+                  <div className="text-sm font-medium">{new Date(raffle.closeDate).toLocaleDateString()}</div>
+                </div>
+             </div>
 
-              <button
-                onClick={() => handlePayment(PaymentProvider.PAYPAL)}
-                disabled={submitting}
-                className={`w-full flex items-center justify-center gap-3 p-4 rounded-lg border transition-all duration-200 
-                  ${submitting ? 'opacity-50 cursor-not-allowed bg-gray-100' : 'bg-[#FFC439] text-black hover:bg-[#f4bb36] shadow-md hover:shadow-lg'}`}
-              >
-                {/* SVG for PayPal would go here */}
-                <span className="font-bold">Pay with PayPal</span>
-              </button>
-            </div>
+             {/* STEPS */}
+             {step === 'OVERVIEW' && (
+               <div className="animate-fadeIn">
+                  <div className="mb-6">
+                    <div className="w-full bg-gray-100 rounded-full h-2 mb-1">
+                      <div className="bg-brand-teal h-2 rounded-full" style={{ width: `${(raffle.soldTickets / raffle.maxTickets) * 100}%` }}></div>
+                    </div>
+                    <div className="flex justify-between text-xs text-gray-500">
+                      <span>{raffle.soldTickets} Sold</span>
+                      <span>{raffle.maxTickets} Cap</span>
+                    </div>
+                  </div>
+                  <Button className="w-full py-4 text-lg shadow-brand-purple/20 shadow-lg" onClick={handleStartEntry}>
+                    Enter Draw
+                  </Button>
+                  <p className="mt-4 text-xs text-center text-gray-400">
+                    You must be 18+ and a GB resident. <br/>Login required.
+                  </p>
+               </div>
+             )}
 
-            <div className="mt-6 text-center">
-              <button 
-                onClick={() => setCurrentStep('DETAILS')}
-                className="text-sm text-gray-500 underline hover:text-gray-800"
-                disabled={submitting}
-              >
-                Cancel and return
-              </button>
-            </div>
-          </div>
-        )}
+             {step === 'AUTH_CHECK' && (
+               <div className="animate-fadeIn space-y-4">
+                 <h3 className="font-bold text-gray-900">Confirm Eligibility</h3>
+                 {user?.dob ? (
+                   <div className="bg-green-50 text-green-800 p-3 rounded text-sm flex items-center gap-2">
+                     <span>✓</span> Profile Verified (18+)
+                   </div>
+                 ) : (
+                   <div>
+                     <label className="block text-xs font-bold text-gray-600 mb-1">Date of Birth</label>
+                     <input 
+                       type="date" 
+                       value={dobInput} 
+                       onChange={(e) => setDobInput(e.target.value)}
+                       className="w-full p-2 border rounded"
+                     />
+                   </div>
+                 )}
+                 
+                 <div className="flex items-start gap-2">
+                   <input type="checkbox" checked={agreed} onChange={e => setAgreed(e.target.checked)} className="mt-1" />
+                   <label className="text-xs text-gray-600">
+                     I accept the Terms. I understand this is a paid raffle entry, NOT a donation.
+                   </label>
+                 </div>
 
+                 <Button 
+                   className="w-full" 
+                   disabled={!agreed || (!user?.dob && !dobInput)}
+                   isLoading={submitting}
+                   onClick={() => user?.dob ? setStep('MINDFUL_INTERACTION') : handleProfileUpdate()}
+                 >
+                   Continue
+                 </Button>
+               </div>
+             )}
+
+             {step === 'MINDFUL_INTERACTION' && mindfulContent && (
+               <div className="animate-fadeIn">
+                  <MindfulMoment 
+                    content={mindfulContent} 
+                    onComplete={() => setStep('QUANTITY')} 
+                  />
+                  <div className="mt-4 text-center">
+                    <button onClick={() => setStep('QUANTITY')} className="text-xs text-gray-400 underline">Skip</button>
+                  </div>
+               </div>
+             )}
+
+             {step === 'QUANTITY' && (
+               <div className="animate-fadeIn">
+                 <h3 className="font-bold text-gray-900 mb-4 text-center">Select Tickets</h3>
+                 <div className="flex items-center justify-center gap-6 mb-6">
+                    <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="w-10 h-10 rounded-full border hover:bg-gray-100 font-bold">-</button>
+                    <div className="text-center">
+                      <span className="text-3xl font-bold text-brand-purple">{quantity}</span>
+                    </div>
+                    <button onClick={() => setQuantity(Math.min(20, quantity + 1))} className="w-10 h-10 rounded-full border hover:bg-gray-100 font-bold">+</button>
+                 </div>
+                 <div className="text-center mb-6">
+                   <div className="text-gray-500 text-sm">Total to pay</div>
+                   <div className="text-2xl font-bold text-gray-900">£{(quantity * raffle.ticketPrice).toFixed(2)}</div>
+                 </div>
+                 <Button className="w-full" onClick={() => setStep('PAYMENT')}>Proceed to Payment</Button>
+                 <button onClick={() => setStep('OVERVIEW')} className="w-full mt-2 text-sm text-gray-500">Cancel</button>
+               </div>
+             )}
+
+             {step === 'PAYMENT' && (
+               <div className="animate-fadeIn space-y-3">
+                 <h3 className="font-bold text-gray-900 mb-2">Secure Checkout</h3>
+                 <div className="bg-yellow-50 border border-yellow-100 p-2 text-xs text-yellow-800 mb-2 rounded">
+                   You are purchasing {quantity} ticket(s). This is not tax deductible.
+                 </div>
+                 <button onClick={() => handlePayment(PaymentProvider.STRIPE)} disabled={submitting} className="w-full bg-[#635BFF] text-white py-3 rounded font-bold hover:opacity-90 transition">
+                   Pay with Card
+                 </button>
+                 <button onClick={() => handlePayment(PaymentProvider.PAYPAL)} disabled={submitting} className="w-full bg-[#FFC439] text-black py-3 rounded font-bold hover:opacity-90 transition">
+                   Pay with PayPal
+                 </button>
+                 <button onClick={() => setStep('QUANTITY')} className="w-full text-sm text-gray-500 mt-2">Back</button>
+               </div>
+             )}
+
+           </div>
+        </div>
       </div>
 
-      {/* --- FOOTER --- */}
       <ComplianceFooter 
-        promoterName={raffle.promoterName}
-        localAuthority={raffle.localAuthority}
-        licenceNumber={raffle.licenceNumber}
+         promoterName={raffle.promoterName} 
+         localAuthority={raffle.localAuthority} 
+         licenceNumber={raffle.licenceNumber} 
       />
     </div>
   );
