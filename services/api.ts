@@ -30,7 +30,7 @@ class MockRaffleApi implements IRaffleApi {
       slug: 'ps5-pro-bundle',
       description: 'The ultimate console experience. Includes PS5 Pro console, 2 DualSense Edge controllers, and a 12-month PS Plus Premium subscription.',
       specs: { brand: 'Sony', model: 'PlayStation 5 Pro', condition: 'NEW', retailValue: 799.99 },
-      ticketPrice: 3.50,
+      ticketPrice: 2.00, // Compliance Baseline
       maxTickets: 2000,
       soldTickets: 1420,
       openDate: '2025-05-01T09:00:00Z',
@@ -42,7 +42,7 @@ class MockRaffleApi implements IRaffleApi {
       localAuthority: 'Birmingham City Council',
       lotteryRegistrationRef: 'LN/2025001',
       charityNumber: '1212285',
-      projectedDonation: 65,
+      projectedDonation: 60,
       prizesValue: 950
     },
     {
@@ -55,7 +55,7 @@ class MockRaffleApi implements IRaffleApi {
       slug: 'steam-deck-oled',
       description: 'Portable PC gaming at its finest. 1TB NVMe SSD, HDR OLED screen. Limited to 400 entries.',
       specs: { brand: 'Valve', model: 'Steam Deck OLED 1TB', condition: 'NEW', retailValue: 569.00 },
-      ticketPrice: 4.00,
+      ticketPrice: 2.00, // Compliance Baseline
       maxTickets: 400,
       soldTickets: 395, 
       openDate: '2025-05-10T09:00:00Z',
@@ -80,7 +80,7 @@ class MockRaffleApi implements IRaffleApi {
         slug: 'xbox-series-x',
         description: 'Previous draw. Winner announced.',
         specs: { brand: 'Microsoft', model: 'Xbox Series X', condition: 'NEW', retailValue: 479.99 },
-        ticketPrice: 2.50,
+        ticketPrice: 2.00, // Compliance Baseline
         maxTickets: 1000,
         soldTickets: 1000,
         openDate: '2025-04-01T09:00:00Z',
@@ -141,7 +141,7 @@ class MockRaffleApi implements IRaffleApi {
       ticketNumbers: [1045, 1046],
       purchaseDate: '2025-05-12T10:00:00Z',
       status: 'CONFIRMED',
-      totalPaid: 7.00
+      totalPaid: 4.00
     }];
     return new Promise(r => setTimeout(() => r(entries), 600));
   }
@@ -160,7 +160,8 @@ class MockRaffleApi implements IRaffleApi {
     const intentId = `intent_${Date.now()}`;
     return new Promise(r => setTimeout(() => r({
         intentId,
-        // Return a router-friendly path, not a hash path
+        // FIX: Return a relative path for internal navigation. 
+        // Do NOT include /#/. React Router's `navigate` handles the hash.
         paymentUrl: `/status/${intentId}` 
     }), 800));
   }

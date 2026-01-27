@@ -1,0 +1,9 @@
+<svg width="800" height="450" xmlns="http://www.w3.org/2000/svg">
+  <rect width="100%" height="100%" fill="#fef3c7"/>
+  <rect x="250" y="150" width="300" height="200" rx="20" fill="#d97706"/>
+  <rect x="280" y="180" width="240" height="100" fill="#4b5563"/>
+  <circle cx="500" cy="310" r="15" fill="#991b1b"/>
+  <circle cx="460" cy="310" r="15" fill="#991b1b"/>
+  <rect x="300" y="290" width="40" height="40" fill="#1f2937"/>
+  <text x="50%" y="30%" font-family="monospace" font-size="36" font-weight="bold" fill="#78350f" text-anchor="middle">RETRO COLLECTION</text>
+</svg>

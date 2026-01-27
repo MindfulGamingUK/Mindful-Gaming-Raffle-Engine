@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Raffle, RaffleType, RaffleStatus } from '../types';
 import { fetchActiveRaffles } from '../services/api';
 import { getAsset } from '../utils/assets';
+import { getConfig } from '../utils/config';
 import { calculateProgress, formatCurrency } from '../utils/formatting';
 import { Button } from '../components/Button';
 import { WellnessRotator } from '../components/WellnessRotator';
@@ -10,6 +11,7 @@ import { WellnessRotator } from '../components/WellnessRotator';
 export const Landing: React.FC = () => {
   const [raffles, setRaffles] = useState<Raffle[]>([]);
   const [loading, setLoading] = useState(true);
+  const config = getConfig();
 
   useEffect(() => {
     fetchActiveRaffles().then(data => {
@@ -27,7 +29,8 @@ export const Landing: React.FC = () => {
       {/* HERO SECTION */}
       <section className="bg-brand-dark rounded-3xl overflow-hidden relative shadow-2xl mx-4 md:mx-0">
         <div className="absolute inset-0">
-          <img src={getAsset('hero_bg')} className="w-full h-full object-cover opacity-20 mix-blend-overlay" alt="Background" />
+          {/* Fixed asset key casing */}
+          <img src={getAsset('HERO_BG')} className="w-full h-full object-cover opacity-20 mix-blend-overlay" alt="Background" />
           <div className="absolute inset-0 bg-gradient-to-r from-brand-dark via-brand-dark/90 to-transparent"></div>
         </div>
         
@@ -50,7 +53,7 @@ export const Landing: React.FC = () => {
                </Link>
                <Link to="/transparency">
                  <Button variant="secondary" className="w-full sm:w-auto bg-white/5 border-white/20 text-white hover:bg-white/10 backdrop-blur-sm">
-                   How it works
+                   Where funds go
                  </Button>
                </Link>
             </div>
@@ -78,6 +81,28 @@ export const Landing: React.FC = () => {
             </div>
           )}
         </div>
+      </section>
+
+      {/* HOW IT WORKS */}
+      <section className="max-w-4xl mx-auto px-4 text-center">
+         <h2 className="text-2xl font-bold text-gray-900 mb-8">How it Works</h2>
+         <div className="grid md:grid-cols-3 gap-8">
+            <div className="p-4">
+               <div className="w-12 h-12 bg-purple-100 text-brand-purple rounded-full flex items-center justify-center text-xl font-bold mx-auto mb-4">1</div>
+               <h3 className="font-bold mb-2">Select a Draw</h3>
+               <p className="text-sm text-gray-600">Choose from our Monthly Main Events or smaller Micro Draws.</p>
+            </div>
+            <div className="p-4">
+               <div className="w-12 h-12 bg-purple-100 text-brand-purple rounded-full flex items-center justify-center text-xl font-bold mx-auto mb-4">2</div>
+               <h3 className="font-bold mb-2">Enter Securely</h3>
+               <p className="text-sm text-gray-600">Verify your age & residency. Purchase tickets securely via Stripe or PayPal.</p>
+            </div>
+            <div className="p-4">
+               <div className="w-12 h-12 bg-purple-100 text-brand-purple rounded-full flex items-center justify-center text-xl font-bold mx-auto mb-4">3</div>
+               <h3 className="font-bold mb-2">Support & Win</h3>
+               <p className="text-sm text-gray-600">Net proceeds support charity. Winners selected by random draw.</p>
+            </div>
+         </div>
       </section>
 
       {/* WELLNESS / ADS REPLACEMENT */}
@@ -141,12 +166,14 @@ export const Landing: React.FC = () => {
             <div>
                 <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm text-2xl">⚖️</div>
                 <h3 className="font-bold text-gray-900 mb-2">Regulated</h3>
-                <p className="text-sm text-gray-500">Licensed by Birmingham City Council. Fully compliant with the Gambling Act 2005.</p>
+                <p className="text-sm text-gray-500">
+                  Registered with {config.localAuthorityName}. Fully compliant with the Gambling Act 2005.
+                </p>
             </div>
             <div>
                 <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm text-2xl">🤝</div>
                 <h3 className="font-bold text-gray-900 mb-2">Transparency</h3>
-                <p className="text-sm text-gray-500">We publish expenses and donation splits for every draw. No hidden fees.</p>
+                <p className="text-sm text-gray-500">We publish expenses and net proceeds for every draw. No hidden fees.</p>
             </div>
             <div>
                 <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm text-2xl">🛡️</div>
