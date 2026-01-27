@@ -1,3 +1,5 @@
+export type ShellMode = 'EMBEDDED' | 'STANDALONE';
+
 export enum RaffleStatus {
   DRAFT = 'DRAFT',
   ACTIVE = 'ACTIVE',
@@ -12,6 +14,8 @@ export enum RaffleType {
   MICRO = 'MICRO'
 }
 
+export type RaffleTheme = 'DEFAULT' | 'NEON' | 'CALM';
+
 export enum PaymentProvider {
   STRIPE = 'STRIPE',
   PAYPAL = 'PAYPAL'
@@ -20,6 +24,7 @@ export enum PaymentProvider {
 export interface Raffle {
   _id: string;
   type: RaffleType;
+  theme: RaffleTheme;
   title: string;
   slug: string;
   description: string;
@@ -45,18 +50,21 @@ export interface UserProfile {
   email: string;
   firstName?: string;
   lastName?: string;
-  dob?: string;
-  residencyConfirmed?: boolean;
+  dob?: string; // ISO String YYYY-MM-DD
+  residencyConfirmed?: boolean; // Must be GB
   marketingConsent?: boolean;
-  selfExclusionActive?: boolean;
+  selfExclusionEndDate?: string | null;
+  spendingLimitMonthly?: number;
 }
 
 export interface Entry {
   _id: string;
   raffleId: string;
+  raffleTitle?: string;
   ticketNumbers: number[];
   purchaseDate: string;
   status: 'CONFIRMED' | 'WINNER' | 'VOID';
+  totalPaid: number;
 }
 
 export interface MindfulContent {

@@ -1,10 +1,13 @@
 import { Raffle, RaffleStatus, RaffleType, PaymentProvider, MindfulContent, UserProfile, Entry } from '../types';
 
 // Mock Data
+let MOCK_PROFILE: UserProfile | null = null; // Start logged out for testing
+
 const MOCK_RAFFLES: Raffle[] = [
   {
     _id: 'raf_main_1',
     type: RaffleType.FLAGSHIP,
+    theme: 'DEFAULT',
     title: 'May Mega Bundle: PS5 Pro + 4K TV',
     slug: 'may-mega-bundle',
     description: 'Our flagship monthly draw. All net proceeds support mental health initiatives in gaming.',
@@ -27,6 +30,7 @@ const MOCK_RAFFLES: Raffle[] = [
   {
     _id: 'raf_micro_1',
     type: RaffleType.MICRO,
+    theme: 'NEON',
     title: 'Micro-Draw: Steam Deck OLED',
     slug: 'steam-deck-micro',
     description: 'Limited to 500 tickets. Draws immediately upon sell-out or at close date.',
@@ -48,36 +52,46 @@ const MOCK_RAFFLES: Raffle[] = [
   }
 ];
 
-const MOCK_PROFILE: UserProfile = {
-  _id: 'member_123',
-  email: 'player@example.com',
-  firstName: 'Alex',
-  lastName: 'Gamer',
-  dob: '1995-05-15', // Set to null to test progressive profiling
-  residencyConfirmed: true,
-  marketingConsent: false
-};
-
 const MOCK_ENTRIES: Entry[] = [
   {
     _id: 'ent_1',
     raffleId: 'raf_main_1',
+    raffleTitle: 'May Mega Bundle',
     ticketNumbers: [1045, 1046],
     purchaseDate: '2025-05-12T10:00:00Z',
-    status: 'CONFIRMED'
+    status: 'CONFIRMED',
+    totalPaid: 4.00
   }
 ];
 
 // --- Services ---
 
+// Simulates Wix Member Login
+export const login = async (): Promise<UserProfile> => {
+  MOCK_PROFILE = {
+    _id: 'member_123',
+    email: 'player@example.com',
+    firstName: 'Alex',
+    lastName: 'Gamer',
+    // Intentionally missing DOB/Residency for progressive profile testing
+    marketingConsent: false
+  };
+  return MOCK_PROFILE;
+};
+
+export const logout = async (): Promise<void> => {
+  MOCK_PROFILE = null;
+};
+
 export const getSession = async (): Promise<UserProfile | null> => {
-  // In Velo: import { currentMember } from 'wix-members';
-  return new Promise((resolve) => setTimeout(() => resolve(MOCK_PROFILE), 500));
+  // In Velo, this would call /_functions/session
+  return new Promise((resolve) => setTimeout(() => resolve(MOCK_PROFILE), 400));
 };
 
 export const updateProfile = async (updates: Partial<UserProfile>): Promise<UserProfile> => {
-  console.log('Updating profile:', updates);
-  Object.assign(MOCK_PROFILE, updates);
+  if (!MOCK_PROFILE) throw new Error("No session");
+  console.log('API: Updating profile:', updates);
+  MOCK_PROFILE = { ...MOCK_PROFILE, ...updates };
   return MOCK_PROFILE;
 };
 
@@ -119,7 +133,7 @@ export const createEntryIntent = async (
   quantity: number, 
   provider: PaymentProvider
 ): Promise<{ paymentUrl: string }> => {
-  console.log('Intent:', { raffleId, quantity, provider });
+  console.log('Intent Created:', { raffleId, quantity, provider, user: MOCK_PROFILE?._id });
   return new Promise((resolve) => {
     setTimeout(() => resolve({ 
       paymentUrl: provider === PaymentProvider.STRIPE ? 'https://stripe.com' : 'https://paypal.com' 
