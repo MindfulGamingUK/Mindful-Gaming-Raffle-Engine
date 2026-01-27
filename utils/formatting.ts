@@ -19,6 +19,9 @@ export const isOver18 = (dobString?: string): boolean => {
   };
   
   export const formatCurrency = (amount: number): string => {
+    // Guard against NaN
+    if (isNaN(amount)) return '£0.00';
+    
     return new Intl.NumberFormat('en-GB', {
       style: 'currency',
       currency: 'GBP'
@@ -27,6 +30,10 @@ export const isOver18 = (dobString?: string): boolean => {
   
   export const calculateProgress = (sold: number, max: number): number => {
     if (max <= 0) return 0;
+    if (sold < 0) return 0;
+    
     const pct = (sold / max) * 100;
-    return Math.min(100, Math.max(0, pct)); // Clamp between 0-100
+    
+    // Safe clamp
+    return Math.min(100, Math.max(0, pct)); 
   };

@@ -18,18 +18,19 @@ const THEMES: Record<RaffleTheme, ThemeColors> = {
     progressFill: 'bg-brand-purple',
     button: 'bg-brand-purple hover:bg-purple-800'
   },
+  // NEON: Rebranded to "Electric Mindful" - Lime/Green/Purple (No Cyan/Pink)
   NEON: {
-    primary: 'text-fuchsia-600',
-    accent: 'text-cyan-400',
+    primary: 'text-lime-600',
+    accent: 'text-purple-400',
     bgGradient: 'from-slate-900 via-purple-900 to-slate-900',
-    badge: 'bg-fuchsia-600 text-white shadow-lg shadow-fuchsia-500/30',
-    progressFill: 'bg-gradient-to-r from-fuchsia-500 to-cyan-400',
-    button: 'bg-fuchsia-600 hover:bg-fuchsia-700'
+    badge: 'bg-lime-500 text-slate-900 font-bold shadow-lg shadow-lime-500/20',
+    progressFill: 'bg-gradient-to-r from-lime-500 to-emerald-400',
+    button: 'bg-lime-600 text-white hover:bg-lime-700 border-none'
   },
   CALM: {
     primary: 'text-emerald-700',
-    accent: 'text-sky-500',
-    bgGradient: 'from-emerald-50 to-sky-50',
+    accent: 'text-teal-500',
+    bgGradient: 'from-emerald-50 to-teal-50',
     badge: 'bg-emerald-600 text-white',
     progressFill: 'bg-emerald-500',
     button: 'bg-emerald-600 hover:bg-emerald-700'
