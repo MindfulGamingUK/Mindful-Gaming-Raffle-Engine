@@ -32,23 +32,42 @@ const MESSAGES: WellnessMessage[] = [
   }
 ];
 
+import { fetchAwarenessRandom, logAwarenessEvent } from '../services/api';
+
 export const WellnessRotator: React.FC = () => {
-  const [index, setIndex] = useState(0);
+  const [message, setMessage] = useState<WellnessMessage | null>(null);
   const [fade, setFade] = useState(true);
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setFade(false); // Fade out
-      setTimeout(() => {
-        setIndex((prev) => (prev + 1) % MESSAGES.length);
-        setFade(true); // Fade in
-      }, 500);
-    }, 8000); // Rotate every 8 seconds
+  // Initial Fetch & Rotate
+  const refreshMessage = async () => {
+    setFade(false);
+    setTimeout(async () => {
+      const content = await fetchAwarenessRandom();
+      if (content) {
+        setMessage({
+          id: content._id,
+          category: content.type as any, // Map type
+          text: content.title,
+          subtext: content.body,
+          icon: content.type === 'SUPPORT' ? '🤝' : content.type === 'SYMPTOM' ? '🛑' : '💡'
+        });
+        // Log impression (optional, or log on click)
+      } else {
+        // Fallback to static if network fails or mock
+        setMessage(MESSAGES[Math.floor(Math.random() * MESSAGES.length)]);
+      }
+      setFade(true);
+    }, 500);
+  };
 
+  useEffect(() => {
+    refreshMessage();
+    const interval = setInterval(refreshMessage, 10000); // 10s rotation
     return () => clearInterval(interval);
   }, []);
 
-  const msg = MESSAGES[index];
+  if (!message) return null;
+  const msg = message;
 
   const getColors = (cat: string) => {
     switch (cat) {
@@ -59,7 +78,13 @@ export const WellnessRotator: React.FC = () => {
   };
 
   return (
-    <div className={`w-full rounded-xl border p-6 transition-all duration-500 transform ${fade ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'} ${getColors(msg.category)}`}>
+    <div
+      onClick={() => {
+        logAwarenessEvent(msg.id, 'CLICK_ROTATOR');
+        if (msg.category === 'SUPPORT') window.open('https://www.mindfulgaminguk.org/support', '_blank', 'noopener,noreferrer');
+      }}
+      className={`w-full rounded-xl border p-6 transition-all duration-500 transform cursor-pointer ${fade ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'} ${getColors(msg.category)}`}
+    >
       <div className="flex items-start gap-4">
         <div className="text-3xl">{msg.icon}</div>
         <div>
@@ -70,15 +95,15 @@ export const WellnessRotator: React.FC = () => {
           <p className="text-sm opacity-90">{msg.subtext}</p>
         </div>
       </div>
-      
+
       {/* Progress Bar */}
       <div className="w-full bg-black/5 h-1 mt-4 rounded-full overflow-hidden">
-        <div 
-            className="h-full bg-current opacity-30" 
-            style={{ 
-                animation: 'progress 8s linear infinite',
-                width: '100%'
-            }}
+        <div
+          className="h-full bg-current opacity-30"
+          style={{
+            animation: 'progress 8s linear infinite',
+            width: '100%'
+          }}
         ></div>
       </div>
       <style>{`

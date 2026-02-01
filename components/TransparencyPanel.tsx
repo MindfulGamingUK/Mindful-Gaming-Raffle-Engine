@@ -1,14 +1,18 @@
 import React from 'react';
+import { RaffleType } from '../types';
 import { formatCurrency } from '../utils/formatting';
 
 interface Props {
   ticketPrice: number;
   projectedDonationPercent: number;
+  drawType?: RaffleType;
 }
 
-export const TransparencyPanel: React.FC<Props> = ({ ticketPrice, projectedDonationPercent }) => {
+export const TransparencyPanel: React.FC<Props> = ({ ticketPrice, projectedDonationPercent, drawType }) => {
   const donationAmount = (ticketPrice * (projectedDonationPercent / 100));
   const costsAmount = (ticketPrice - donationAmount);
+
+  const label = drawType === RaffleType.PRIZE_COMPETITION ? 'Proceeds to Charity' : 'Charitable Purpose';
 
   return (
     <div className="bg-gray-50 rounded-lg p-5 border border-gray-200 my-6">
@@ -16,7 +20,7 @@ export const TransparencyPanel: React.FC<Props> = ({ ticketPrice, projectedDonat
       <div className="flex items-center gap-6">
         <div className="flex-1">
           <div className="flex justify-between text-sm mb-1.5">
-            <span className="font-bold text-brand-purple">Charitable Purpose</span>
+            <span className="font-bold text-brand-purple">{label}</span>
             <span className="font-bold">{projectedDonationPercent}%</span>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
@@ -26,9 +30,9 @@ export const TransparencyPanel: React.FC<Props> = ({ ticketPrice, projectedDonat
             ~{formatCurrency(donationAmount)} per ticket helps fight Gaming Disorder.
           </p>
         </div>
-        
+
         <div className="hidden md:block w-px h-12 bg-gray-300"></div>
-        
+
         <div className="flex-1 hidden md:block">
           <div className="flex justify-between text-sm mb-1.5">
             <span className="font-semibold text-gray-600">Prizes & Costs</span>

@@ -18,6 +18,7 @@ const App: React.FC = () => {
         <Layout>
           <Routes>
             <Route path="/" element={<Landing />} />
+            <Route path="/win-to-support" element={<Landing />} />
             <Route path="/draws" element={<DrawsCatalogue />} />
             <Route path="/draw/:slug" element={<RaffleDetail />} />
             <Route path="/status/:intentId" element={<EntryStatus />} />
