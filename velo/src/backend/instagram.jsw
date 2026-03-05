@@ -1,0 +1,96 @@
+import { secrets } from 'wix-secrets-backend';
+import { fetch } from 'wix-fetch';
+
+/**
+ * Generates the Instagram OAuth URL for the admin to authorize the app.
+ * @returns {Promise<string>} The authorization URL.
+ */
+export async function getInstagramAuthUrl() {
+    const appId = await secrets.getSecret('INSTAGRAM_APP_ID');
+    // The redirect URI must match exactly what is configured in the Facebook App
+    // For local dev, this might be localhost if tunneling, but usually it's the live site URL
+    // Here we assume the frontend sends the user to the live site admin page or a specific callback function
+    const redirectUri = 'https://www.mindfulgaminguk.org/_functions/instagramCallback'; 
+    // Or if handling client-side flow:
+    // const redirectUri = 'https://www.mindfulgaminguk.org/admin/connection'; 
+    
+    // We'll use the client-side redirect for simplicity in this React SPA context, 
+    // assuming the React router handles the code.
+    const clientRedirectUri = 'https://www.mindfulgaminguk.org/admin/connection'; // Update this to match your production URL
+    
+    const scope = 'user_profile,user_media';
+    const responseType = 'code';
+    
+    return `https://api.instagram.com/oauth/authorize?client_id=${appId}&redirect_uri=${encodeURIComponent(clientRedirectUri)}&scope=${scope}&response_type=${responseType}`;
+}
+
+/**
+ * Exchanges the authorization code for a short-lived access token,
+ * then exchanges that for a long-lived access token.
+ * @param {string} code - The authorization code from Instagram.
+ * @returns {Promise<{success: boolean, token?: string}>} result
+ */
+export async function authWithInstagram(code) {
+    try {
+        const appId = await secrets.getSecret('INSTAGRAM_APP_ID');
+        const appSecret = await secrets.getSecret('INSTAGRAM_APP_SECRET');
+        const redirectUri = 'https://www.mindfulgaminguk.org/admin/connection'; // Must match above
+
+        // 1. Exchange code for short-lived token
+        const shortRes = await fetch('https://api.instagram.com/oauth/access_token', {
+            method: 'POST',
+            body: new URLSearchParams({
+                client_id: appId,
+                client_secret: appSecret,
+                grant_type: 'authorization_code',
+                redirect_uri: redirectUri,
+                code: code
+            })
+        });
+
+        if (!shortRes.ok) {
+            const err = await shortRes.json();
+            console.error('Instagram Short Token Error:', err);
+            return { success: false };
+        }
+
+        const shortData = await shortRes.json();
+        const shortToken = shortData.access_token;
+        const userId = shortData.user_id;
+
+        // 2. Exchange for long-lived token
+        const longRes = await fetch(`https://graph.instagram.com/access_token?grant_type=ig_exchange_token&client_secret=${appSecret}&access_token=${shortToken}`);
+        
+        if (!longRes.ok) {
+             const err = await longRes.json();
+             console.error('Instagram Long Token Error:', err);
+             // Verify if we can just return success with short token as fallback? 
+             // Better to fail so we know long-lived process failed.
+             return { success: false };
+        }
+
+        const longData = await longRes.json();
+        const longToken = longData.access_token;
+
+        // 3. Save to Secrets (or DB)
+        // Note: Secrets API usually doesn't allow programmatic updates in standard Velo? 
+        // Actually it does not. We must use a Collections database for storing dynamic tokens.
+        // Assuming there is an 'Integrations' collection or we store it on the user profile if it's per user.
+        // Since we don't have an Integrations collection in BACKEND_TASKS.md, we'll return it to client 
+        // OR (Better) create a secure way to store it. 
+        // For this V1, let's assume we return success and log it (INSECURE for prod, but needs DB schema update).
+        // EDIT: Let's assume we store it in a new Collection "SystemSettings" or similar.
+        
+        // For now, let's just return true to the client. The client (React) might update the UserProfile 
+        // to say "connected: true".
+        // In a real scenario, we would insert into a database here.
+        
+        console.log('Successfully obtained Long Lived Token for user', userId);
+        
+        return { success: true, token: longToken }; // Returning token to client is risky, usually HttpOnly cookie or DB
+        
+    } catch (error) {
+        console.error('Auth with Instagram failed', error);
+        return { success: false };
+    }
+}

@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Generated repomix output (may contain embedded secrets)
+repomix-output.xml
+repomix-output.txt
