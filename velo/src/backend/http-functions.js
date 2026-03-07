@@ -105,7 +105,7 @@ function timingSafeEqualHex(a, b) {
 }
 
 async function computeHmacSha256Hex(secret, payload) {
-    const cryptoObj = globalThis.crypto;
+    const cryptoObj = (typeof crypto !== 'undefined') ? crypto : null;
     if (!cryptoObj || !cryptoObj.subtle) {
         throw new Error('Web Crypto API unavailable for Stripe verification');
     }
@@ -227,12 +227,13 @@ export async function get_session(request) {
 
 export async function get_rafflesActive(request) {
     try {
+        // closeDate stored as ISO string in CMS — filter by status then post-filter by date
         const results = await wixData.query(COLLECTIONS.RAFFLES)
             .eq('status', 'ACTIVE')
-            .le('openDate', new Date())
-            .ge('closeDate', new Date())
-            .find();
-        return response(ok, results.items, request);
+            .find({ suppressAuth: true });
+        const now = new Date().toISOString();
+        const active = results.items.filter(r => r.closeDate && r.closeDate >= now);
+        return response(ok, active, request);
     } catch (error) {
         return response(serverError, { error: error.message }, request);
     }
@@ -242,7 +243,7 @@ export async function get_raffleBySlug(request) {
     const slug = request.query.slug;
     if (!slug) return response(badRequest, { error: "Missing slug" }, request);
     try {
-        const results = await wixData.query(COLLECTIONS.RAFFLES).eq('slug', slug).find();
+        const results = await wixData.query(COLLECTIONS.RAFFLES).eq('slug', slug).find({ suppressAuth: true });
         if (results.items.length === 0) return response(notFound, { error: "Raffle not found" }, request);
         const raffle = { ...results.items[0] };
         // SECURITY: strip correctAnswerIndex so clients cannot bypass the skill gate
