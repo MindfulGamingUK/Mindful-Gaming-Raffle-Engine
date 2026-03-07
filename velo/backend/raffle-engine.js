@@ -9,6 +9,54 @@ const COLLECTIONS = {
     AUDIT: 'AuditLogs'
 };
 
+const QUERY_PAGE_SIZE = 1000;
+
+async function fetchAllQueryItems(query) {
+    let results = await query.limit(QUERY_PAGE_SIZE).find({ suppressAuth: true });
+    const items = [...results.items];
+
+    while (results.hasNext()) {
+        results = await results.next();
+        items.push(...results.items);
+    }
+
+    return items;
+}
+
+function getEntryTicketNumbers(entry) {
+    if (Array.isArray(entry.ticketNumbers) && entry.ticketNumbers.length > 0) {
+        return entry.ticketNumbers;
+    }
+    return [];
+}
+
+function getSecureRandomInt(maxExclusive) {
+    const UINT32_RANGE = 0x100000000; // 2^32
+
+    if (!Number.isInteger(maxExclusive) || maxExclusive <= 0) {
+        throw new Error('Invalid maxExclusive for secure random index');
+    }
+    if (maxExclusive > UINT32_RANGE) {
+        throw new Error('Secure RNG range exceeds 32-bit limit');
+    }
+
+    const cryptoObj = globalThis.crypto;
+    if (!cryptoObj || typeof cryptoObj.getRandomValues !== 'function') {
+        throw new Error('Secure RNG unavailable in runtime');
+    }
+
+    const cutoff = UINT32_RANGE - (UINT32_RANGE % maxExclusive);
+    const buffer = new Uint32Array(1);
+    let value = 0;
+
+    do {
+        cryptoObj.getRandomValues(buffer);
+        value = buffer[0];
+    } while (value >= cutoff);
+
+    return value % maxExclusive;
+}
+
 /**
  * Mint tickets safely with idempotency checks.
  * @param {object} params
@@ -61,6 +109,7 @@ export async function secureMintTickets({ provider, providerEventId, intentId, a
         raffleId: intent.raffleId,
         memberId: intent.memberId || intent.guestId,
         amountPence,
+        quantity: intent.quantity,
         currency: 'GBP',
         status: 'PROCESSING',
         createdAt: new Date()
@@ -161,4 +210,186 @@ export async function secureMintTickets({ provider, providerEventId, intentId, a
     }, { suppressAuth: true });
 
     return { status: "SUCCESS", ticketNumbers: allocated };
+}
+
+/**
+ * Execute a draw using a secure random index.
+ * Selects one winning ticket from all confirmed entries for a raffle.
+ * Admin-only — caller must verify ADMIN_SECRET before invoking.
+ * @param {string} raffleId
+ * @returns {{ status: string, winningTicketNumber?: number, winnerId?: string }}
+ */
+export async function executeDrawRng(raffleId) {
+    const raffle = await wixData.get(COLLECTIONS.RAFFLES, raffleId, { suppressAuth: true });
+    if (!raffle) return { status: "ERROR", message: "Raffle not found" };
+    if (raffle.status !== 'CLOSED') return { status: "ERROR", message: "Raffle must be CLOSED before draw" };
+
+    // Gather all confirmed entries with pagination
+    const entries = await fetchAllQueryItems(
+        wixData.query(COLLECTIONS.ENTRIES)
+        .eq('raffleId', raffleId)
+        .eq('status', 'CONFIRMED')
+    );
+
+    if (entries.length === 0) return { status: "ERROR", message: "No confirmed entries" };
+
+    // Build weighted ranges without flattening all tickets in memory
+    const weightedEntries = [];
+    let totalTickets = 0;
+    for (const entry of entries) {
+        const tickets = getEntryTicketNumbers(entry);
+        if (tickets.length === 0) continue;
+        weightedEntries.push({
+            memberId: entry.memberId,
+            ticketNumbers: tickets,
+            count: tickets.length
+        });
+        totalTickets += tickets.length;
+    }
+
+    if (totalTickets === 0 || weightedEntries.length === 0) {
+        return { status: "ERROR", message: "No tickets in pool" };
+    }
+
+    // CSPRNG pick: choose an offset from the full ticket pool
+    let winningOffset;
+    try {
+        winningOffset = getSecureRandomInt(totalTickets);
+    } catch (e) {
+        await wixData.insert(COLLECTIONS.AUDIT, {
+            actionType: 'DRAW_RANDOMNESS_ERROR',
+            raffleId,
+            actor: 'SYSTEM',
+            payload: { error: e.message },
+            createdAt: new Date()
+        }, { suppressAuth: true });
+
+        return { status: "ERROR", message: "Secure randomness unavailable" };
+    }
+
+    // Resolve winning ticket from weighted ranges
+    let remaining = winningOffset;
+    let winner = null;
+
+    for (const entry of weightedEntries) {
+        if (remaining < entry.count) {
+            winner = {
+                ticketNumber: entry.ticketNumbers[remaining],
+                memberId: entry.memberId
+            };
+            break;
+        }
+        remaining -= entry.count;
+    }
+
+    if (!winner) {
+        return { status: "ERROR", message: "Failed to resolve winning ticket" };
+    }
+
+    // Record winner
+    await wixData.insert('WinnerRecords', {
+        raffleId,
+        winningTicketNumber: winner.ticketNumber,
+        winnerMemberId: winner.memberId,
+        winnerPublicLabel: '', // To be filled after contact
+        consentToPublish: false,
+        drawnAt: new Date()
+    }, { suppressAuth: true });
+
+    // Update raffle status and record winning ticket
+    raffle.status = 'DRAWN';
+    raffle.winningTicketNumber = winner.ticketNumber;
+    raffle.winnerPublicId = winner.memberId;
+    await wixData.update(COLLECTIONS.RAFFLES, raffle, { suppressAuth: true });
+
+    // Audit log
+    await wixData.insert(COLLECTIONS.AUDIT, {
+        actionType: 'DRAW_EXECUTED',
+        raffleId,
+        actor: 'SYSTEM',
+        payload: {
+            winningTicket: winner.ticketNumber,
+            poolSize: totalTickets,
+            winningOffset,
+            rngMethod: 'WEB_CRYPTO_GET_RANDOM_VALUES'
+        },
+        createdAt: new Date()
+    }, { suppressAuth: true });
+
+    return { status: "SUCCESS", winningTicketNumber: winner.ticketNumber, winnerId: winner.memberId };
+}
+
+/**
+ * Export a lottery return record (LAA5-equivalent data) for regulatory filing.
+ * Must be filed with Birmingham City Council within 3 months of draw date.
+ * Admin-only — caller must verify ADMIN_SECRET before invoking.
+ * @param {string} raffleId
+ * @returns {{ status: string, record?: object }}
+ */
+export async function exportLotteryReturn(raffleId) {
+    const raffle = await wixData.get(COLLECTIONS.RAFFLES, raffleId, { suppressAuth: true });
+    if (!raffle) return { status: "ERROR", message: "Raffle not found" };
+    if (raffle.status !== 'DRAWN') return { status: "ERROR", message: "Draw must be completed before export" };
+
+    // Sum all confirmed ledger entries with pagination
+    const ledgerItems = await fetchAllQueryItems(
+        wixData.query(COLLECTIONS.LEDGER)
+        .eq('raffleId', raffleId)
+        .eq('status', 'CONFIRMED')
+    );
+
+    // Derive tickets sold from confirmed entries to avoid ledger quantity drift
+    const confirmedEntries = await fetchAllQueryItems(
+        wixData.query(COLLECTIONS.ENTRIES)
+            .eq('raffleId', raffleId)
+            .eq('status', 'CONFIRMED')
+    );
+
+    const grossReceiptsPence = ledgerItems.reduce((sum, r) => sum + (Number(r.amountPence) || 0), 0);
+    const ticketsSold = confirmedEntries.reduce((sum, entry) => sum + getEntryTicketNumbers(entry).length, 0);
+    const grossReceipts = grossReceiptsPence / 100;
+    const prizesPaid = raffle.prizesValue || 0;
+    const expensesPaid = 0; // To be set manually if applicable
+    const netProceeds = grossReceipts - prizesPaid - expensesPaid;
+    const charityContribution = netProceeds;
+
+    const record = {
+        raffleId,
+        raffleTitle: raffle.title,
+        societyName: 'Mindful Gaming UK',
+        registrationRef: '213653',
+        localAuthority: 'Birmingham City Council',
+        charityNumber: '1212285',
+        address: '5 Longmoor Road, Sutton Coldfield, B73 6UB',
+        periodStart: raffle.openDate,
+        periodEnd: raffle.closeDate,
+        drawDate: raffle.drawDate,
+        ticketPrice: raffle.ticketPrice,
+        ticketsSold,
+        maxTickets: raffle.maxTickets,
+        grossReceipts,
+        prizesPaid,
+        expensesPaid,
+        netProceeds,
+        charityContribution,
+        charityContributionPct: grossReceipts > 0 ? ((charityContribution / grossReceipts) * 100).toFixed(1) : '0',
+        winningTicketNumber: raffle.winningTicketNumber,
+        exportedAt: new Date().toISOString(),
+        exportedBy: 'SYSTEM',
+        // LAA5 compliance notes
+        notes: `Small Society Lottery — Gambling Act 2005. Reg No: 213653. Charity: ${raffle.charityNumber}.`
+    };
+
+    // Persist the return record
+    await wixData.insert('LotteryReturns', record, { suppressAuth: true });
+
+    await wixData.insert(COLLECTIONS.AUDIT, {
+        actionType: 'RETURN_EXPORTED',
+        raffleId,
+        actor: 'SYSTEM',
+        payload: { grossReceipts, ticketsSold, charityContributionPct: record.charityContributionPct },
+        createdAt: new Date()
+    }, { suppressAuth: true });
+
+    return { status: "SUCCESS", record };
 }

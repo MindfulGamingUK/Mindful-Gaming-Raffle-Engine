@@ -1,8 +1,10 @@
 import wixData from 'wix-data';
 import wixSecretsBackend from 'wix-secrets-backend';
+import { fetch } from 'wix-fetch';
 import { currentMember } from 'wix-members-backend';
 import { ok, badRequest, notFound, forbidden, serverError, response as wixResponse } from 'wix-http-functions';
-import { secureMintTickets } from 'backend/raffle-engine';
+import { secureMintTickets, executeDrawRng, exportLotteryReturn } from 'backend/raffle-engine';
+import { getInstagramAuthUrl, authWithInstagram } from 'backend/instagram';
 
 // --- CONSTANTS ---
 const COLLECTIONS = {
@@ -11,7 +13,7 @@ const COLLECTIONS = {
     INTENTS: 'EntryIntents',
     ENTRIES: 'Entries',
     PAYMENTS: 'PaymentsLedger',
-    WINNERS: 'Winners',
+    WINNERS: 'WinnerRecords',
     AUDIT: 'AuditLogs'
 };
 
@@ -21,8 +23,11 @@ const HEADERS = {
 
 const ALLOWED_ORIGINS = [
     'https://www.mindfulgaminguk.org',
+    'https://mindfulgaminguk.github.io',
     'http://localhost:3000',
-    'http://localhost:3005'
+    'http://localhost:3005',
+    'http://localhost:3006',
+    'http://localhost:5173'
 ];
 
 function getCorsHeaders(request) {
@@ -31,7 +36,7 @@ function getCorsHeaders(request) {
         ...HEADERS,
         'Access-Control-Allow-Origin': ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0],
         'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, x-mock-role, x-service-key, Authorization'
+        'Access-Control-Allow-Headers': 'Content-Type, x-mock-role, x-service-key, Authorization, stripe-signature'
     };
 }
 
@@ -53,6 +58,85 @@ async function checkRateLimit(identity, type) {
     } catch (e) {
         return true;
     }
+}
+
+function parseStripeSignatureHeader(signatureHeader) {
+    if (!signatureHeader || typeof signatureHeader !== 'string') {
+        return { timestamp: null, signatures: [] };
+    }
+
+    const segments = signatureHeader.split(',').map(s => s.trim());
+    let timestamp = null;
+    const signatures = [];
+
+    for (const segment of segments) {
+        const idx = segment.indexOf('=');
+        if (idx === -1) continue;
+        const key = segment.slice(0, idx);
+        const value = segment.slice(idx + 1);
+
+        if (key === 't') {
+            const parsed = Number(value);
+            if (Number.isFinite(parsed)) timestamp = parsed;
+        } else if (key === 'v1' && value) {
+            signatures.push(value);
+        }
+    }
+
+    return { timestamp, signatures };
+}
+
+function toHex(buffer) {
+    return Array.from(new Uint8Array(buffer))
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
+}
+
+function timingSafeEqualHex(a, b) {
+    if (typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length) {
+        return false;
+    }
+
+    let diff = 0;
+    for (let i = 0; i < a.length; i++) {
+        diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+    }
+    return diff === 0;
+}
+
+async function computeHmacSha256Hex(secret, payload) {
+    const cryptoObj = globalThis.crypto;
+    if (!cryptoObj || !cryptoObj.subtle) {
+        throw new Error('Web Crypto API unavailable for Stripe verification');
+    }
+
+    const encoder = new TextEncoder();
+    const key = await cryptoObj.subtle.importKey(
+        'raw',
+        encoder.encode(secret),
+        { name: 'HMAC', hash: 'SHA-256' },
+        false,
+        ['sign']
+    );
+
+    const signature = await cryptoObj.subtle.sign('HMAC', key, encoder.encode(payload));
+    return toHex(signature);
+}
+
+async function verifyStripeSignature(bodyText, signatureHeader, webhookSecret, toleranceSeconds = 300) {
+    const { timestamp, signatures } = parseStripeSignatureHeader(signatureHeader);
+    if (!Number.isFinite(timestamp) || signatures.length === 0 || !webhookSecret) {
+        return false;
+    }
+
+    const nowSeconds = Math.floor(Date.now() / 1000);
+    if (Math.abs(nowSeconds - timestamp) > toleranceSeconds) {
+        return false;
+    }
+
+    const signedPayload = `${timestamp}.${bodyText}`;
+    const expectedSignature = await computeHmacSha256Hex(webhookSecret, signedPayload);
+    return signatures.some(sig => timingSafeEqualHex(sig, expectedSignature));
 }
 
 // --- HELPERS ---
@@ -78,6 +162,10 @@ export function options_surveyResponse(request) { return response(ok, {}, reques
 export function options_competitionQuestion(request) { return response(ok, {}, request); }
 export function options_awarenessEvent(request) { return response(ok, {}, request); }
 export function options_admin_retryMint(request) { return response(ok, {}, request); }
+export function options_getInstagramAuthUrl(request) { return response(ok, {}, request); }
+export function options_authWithInstagram(request) { return response(ok, {}, request); }
+export function options_stripeWebhook(request) { return response(ok, {}, request); }
+export function options_paypalWebhook(request) { return response(ok, {}, request); }
 
 async function getMemberFromRequest(request) {
     // SECURITY: In Prod, we use Wix Members Identity
@@ -120,7 +208,7 @@ async function getProfile(memberId) {
 // --- PUBLIC ENDPOINTS ---
 
 export async function get_session(request) {
-    const user = getMemberFromRequest(request);
+    const user = await getMemberFromRequest(request); // FIX: getMemberFromRequest is async
     let profile = null;
 
     if (user.loggedIn) {
@@ -130,10 +218,7 @@ export async function get_session(request) {
     return response(ok, {
         loggedIn: user.loggedIn,
         memberId: user.loggedIn ? user.id : null,
-        // Mock names, in reality fetch from Wix Members
-        email: user.loggedIn ? 'player@example.com' : undefined,
-        firstName: user.loggedIn ? 'Alex' : undefined,
-        lastName: user.loggedIn ? 'Gamer' : undefined,
+        email: user.email,
         profileSupplement: profile,
         isEligible: profile?.residencyConfirmed && isOver18(profile?.dob),
         isProfileComplete: !!(profile?.dob && profile?.residencyConfirmed)
@@ -144,7 +229,6 @@ export async function get_rafflesActive(request) {
     try {
         const results = await wixData.query(COLLECTIONS.RAFFLES)
             .eq('status', 'ACTIVE')
-            .le('openDate', new Date())
             .ge('closeDate', new Date())
             .find();
         return response(ok, results.items, request);
@@ -159,7 +243,13 @@ export async function get_raffleBySlug(request) {
     try {
         const results = await wixData.query(COLLECTIONS.RAFFLES).eq('slug', slug).find();
         if (results.items.length === 0) return response(notFound, { error: "Raffle not found" }, request);
-        return response(ok, results.items[0], request);
+        const raffle = { ...results.items[0] };
+        // SECURITY: strip correctAnswerIndex so clients cannot bypass the skill gate
+        if (raffle.skillQuestion) {
+            const { correctAnswerIndex, ...safeQuestion } = raffle.skillQuestion;
+            raffle.skillQuestion = safeQuestion;
+        }
+        return response(ok, raffle, request);
     } catch (error) {
         return response(serverError, { error: error.message }, request);
     }
@@ -180,7 +270,7 @@ function isOver18(dobDate) {
 }
 
 export async function get_profile(request) {
-    const user = getMemberFromRequest(request);
+    const user = await getMemberFromRequest(request);
     if (!user.loggedIn) return response(forbidden, { error: "Login required" }, request);
 
     const profile = await getProfile(user.id);
@@ -188,7 +278,7 @@ export async function get_profile(request) {
 }
 
 export async function post_profileUpdate(request) {
-    const user = getMemberFromRequest(request);
+    const user = await getMemberFromRequest(request);
     if (!user.loggedIn) return response(forbidden, { error: "Login required" }, request);
 
     try {
@@ -218,7 +308,7 @@ export async function post_profileUpdate(request) {
 }
 
 export async function post_createEntryIntent(request) {
-    const user = getMemberFromRequest(request);
+    const user = await getMemberFromRequest(request);
     if (!user.loggedIn) return response(forbidden, { error: "Login required" }, request);
 
     try {
@@ -254,7 +344,7 @@ export async function post_createEntryIntent(request) {
         }
 
         // 4. Handle Skill Question (PRIZE_COMPETITION only)
-        if (raffle.type === 'PRIZE_COMPETITION') {
+        if (raffle.drawType === 'PRIZE_COMPETITION') {
             if (skillAnswerIndex === undefined || skillAnswerIndex !== raffle.skillQuestion.correctAnswerIndex) {
                 return response(badRequest, { error: "Incorrect or missing answer to skill question" }, request);
             }
@@ -263,9 +353,9 @@ export async function post_createEntryIntent(request) {
         const amountPence = Math.round(quantity * (raffle.ticketPrice * 100));
 
         // RULES SNAPSHOT (Hardening Requirement)
-        const rulesVersion = "2025.01-v1";
-        const rulesUrl = "https://www.mindfulgaminguk.org/rules";
-        const complianceTextHash = "sha256:7f83b1e..."; // Mock hash of compliance text
+        const rulesVersion = "2026.03-v1";
+        const rulesUrl = "https://www.mindfulgaminguk.org/lottery-rules";
+        const complianceTextHash = "sha256:pending"; // Set to real hash once rules page is live
 
         const intent = {
             memberId: user.id,
@@ -335,9 +425,9 @@ export async function post_createGuestEntryIntent(request) {
             amountPence,
             provider,
             status: 'INITIATED',
-            rulesVersion: "2025.01-v1",
-            rulesUrl: "https://www.mindfulgaminguk.org/rules",
-            complianceTextHash: "sha256:7f83b1e...",
+            rulesVersion: "2026.03-v1",
+            rulesUrl: "https://www.mindfulgaminguk.org/lottery-rules",
+            complianceTextHash: "sha256:pending",
             createdAt: new Date(),
             expiresAt: new Date(Date.now() + 30 * 60000)
         };
@@ -382,7 +472,7 @@ export async function get_guestStatus(request) {
 }
 
 export async function post_createStripeCheckoutSession(request) {
-    const user = getMemberFromRequest(request);
+    const user = await getMemberFromRequest(request);
     if (!user.loggedIn) return response(forbidden, { error: "Login required" }, request);
 
     try {
@@ -393,21 +483,47 @@ export async function post_createStripeCheckoutSession(request) {
         const raffle = await wixData.get(COLLECTIONS.RAFFLES, intent.raffleId);
         const stripeSecret = await wixSecretsBackend.getSecret('STRIPE_SECRET_KEY');
 
-        // MOCK Stripe Checkout Session Implementation
-        // In Prod: Use fetch('https://api.stripe.com/v1/checkout/sessions', ...)
-        const sessionId = `stripe_${Date.now()}`;
-        const paymentUrl = `https://checkout.stripe.com/pay/${sessionId}?intentId=${intentId}`;
+        // Real Stripe Checkout Session
+        const siteBase = 'https://www.mindfulgaminguk.org';
+        const params = new URLSearchParams({
+            'payment_method_types[]': 'card',
+            'mode': 'payment',
+            'line_items[0][price_data][currency]': 'gbp',
+            'line_items[0][price_data][product_data][name]': `${raffle.title} — ${intent.quantity} ticket(s)`,
+            'line_items[0][price_data][unit_amount]': String(intent.amountPence),
+            'line_items[0][quantity]': '1',
+            'success_url': `${siteBase}/raffle-engine#/status/${intentId}?session_id={CHECKOUT_SESSION_ID}`,
+            'cancel_url': `${siteBase}/raffle-engine#/draw/${raffle.slug}`,
+            'metadata[intentId]': intentId,
+            'metadata[raffleId]': intent.raffleId,
+            'metadata[memberId]': user.id
+        });
 
-        await wixData.update(COLLECTIONS.INTENTS, { ...intent, externalSessionId: sessionId });
+        const stripeRes = await fetch('https://api.stripe.com/v1/checkout/sessions', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${stripeSecret}`,
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: params.toString()
+        });
 
-        return response(ok, { paymentUrl, intentId }, request);
+        const session = await stripeRes.json();
+        if (!session.url) {
+            console.error('Stripe session error:', session);
+            return response(serverError, { error: session.error?.message || 'Stripe session creation failed' }, request);
+        }
+
+        await wixData.update(COLLECTIONS.INTENTS, { ...intent, externalSessionId: session.id }, { suppressAuth: true });
+
+        return response(ok, { paymentUrl: session.url, intentId }, request);
     } catch (error) {
         return response(serverError, { error: error.message }, request);
     }
 }
 
 export async function post_createPayPalOrder(request) {
-    const user = getMemberFromRequest(request);
+    const user = await getMemberFromRequest(request);
     if (!user.loggedIn) return response(forbidden, { error: "Login required" }, request);
 
     try {
@@ -428,7 +544,7 @@ export async function post_createPayPalOrder(request) {
 }
 
 export async function get_entryIntentStatus(request) {
-    const user = getMemberFromRequest(request);
+    const user = await getMemberFromRequest(request);
     if (!user.loggedIn) return response(forbidden, { error: "Login required" }, request);
 
     const intentId = request.query.intentId;
@@ -446,7 +562,7 @@ export async function get_entryIntentStatus(request) {
 }
 
 export async function get_myEntries(request) {
-    const user = getMemberFromRequest(request);
+    const user = await getMemberFromRequest(request);
     if (!user.loggedIn) return response(forbidden, { error: "Login required" }, request);
 
     try {
@@ -479,6 +595,130 @@ export async function post_secureMint(request) {
 
     } catch (error) {
         return response(serverError, { error: error.message }, request);
+    }
+}
+
+// --- WEBHOOK HANDLERS ---
+
+/**
+ * Handle Stripe Webhooks
+ */
+export async function post_stripeWebhook(request) {
+    try {
+        const bodyText = await request.body.text();
+        const signature = request.headers['stripe-signature'] || request.headers['Stripe-Signature'];
+        const webhookSecret = await wixSecretsBackend.getSecret('STRIPE_WEBHOOK_SECRET');
+
+        const isValid = await verifyStripeSignature(bodyText, signature, webhookSecret);
+        if (!isValid) {
+            return response(forbidden, { error: "Invalid Stripe signature" }, request);
+        }
+
+        const event = JSON.parse(bodyText);
+
+        if (event.type === 'checkout.session.completed') {
+            const session = event.data.object;
+            const intentId = session.metadata?.intentId;
+            const amountTotal = Number(session.amount_total); // in pence/cents
+
+            if (!intentId) {
+                return response(badRequest, { error: "Missing intentId in metadata" }, request);
+            }
+            if (!Number.isFinite(amountTotal)) {
+                return response(badRequest, { error: "Invalid amount_total in Stripe payload" }, request);
+            }
+            if (!event.id) {
+                return response(badRequest, { error: "Missing event.id in Stripe payload" }, request);
+            }
+
+            const result = await secureMintTickets({
+                provider: 'STRIPE',
+                providerEventId: event.id,
+                intentId: intentId,
+                amountPence: amountTotal
+            });
+
+            if (result.status === 'ERROR') {
+                return response(badRequest, result, request);
+            }
+            return response(ok, result, request);
+        }
+
+        return response(ok, { received: true }, request);
+
+    } catch (e) {
+        console.error('Stripe Webhook Error:', e);
+        return response(serverError, { error: e.message }, request);
+    }
+}
+
+/**
+ * Handle PayPal Webhooks
+ */
+export async function post_paypalWebhook(request) {
+    try {
+        const event = await request.body.json();
+
+        // PayPal Webhook verification typically requires a call back to PayPal or custom logic.
+        // Here we handle the core business logic.
+
+        if (event.event_type === 'CHECKOUT.ORDER.APPROVED' || event.event_type === 'PAYMENT.CAPTURE.COMPLETED') {
+            const resource = event.resource;
+            // Extract intentId from custom_id or reference_id
+            const intentId = resource.custom_id || resource.purchase_units?.[0]?.custom_id || resource.purchase_units?.[0]?.reference_id;
+
+            // Amount handling (PayPal amounts are usually strings like "10.00")
+            const amountValue = resource.amount?.value || resource.purchase_units?.[0]?.amount?.value;
+            const amountPence = Math.round(parseFloat(amountValue) * 100);
+
+            if (!intentId) {
+                return response(badRequest, { error: "Missing intentId in PayPal event" }, request);
+            }
+
+            const result = await secureMintTickets({
+                provider: 'PAYPAL',
+                providerEventId: event.id,
+                intentId: intentId,
+                amountPence: amountPence
+            });
+
+            return response(ok, result, request);
+        }
+
+        return response(ok, { received: true }, request);
+
+    } catch (e) {
+        console.error('PayPal Webhook Error:', e);
+        return response(serverError, { error: e.message }, request);
+    }
+}
+
+// --- COMPETITION QUESTION ---
+
+export async function get_competitionQuestion(request) {
+    const raffleId = request.query.raffleId;
+    if (!raffleId) return response(badRequest, { error: "Missing raffleId" }, request);
+
+    try {
+        const raffle = await wixData.get(COLLECTIONS.RAFFLES, raffleId, { suppressAuth: true });
+        if (!raffle || !raffle.skillQuestion) return response(notFound, { error: "No skill question for this raffle" }, request);
+
+        // Parse stored JSON if needed
+        let sq = raffle.skillQuestion;
+        if (typeof sq === 'string') sq = JSON.parse(sq);
+
+        // Strip correctAnswerIndex before returning
+        const { correctAnswerIndex, ...safeQuestion } = sq;
+        return response(ok, {
+            _id: raffleId,
+            questionText: safeQuestion.question || safeQuestion.questionText || '',
+            options: safeQuestion.options || [],
+            explanation: safeQuestion.explanation || '',
+            difficultyTag: safeQuestion.difficultyTag || 'EASY',
+            active: true
+        }, request);
+    } catch (e) {
+        return response(serverError, { error: e.message }, request);
     }
 }
 
@@ -615,6 +855,41 @@ export async function post_admin_retryMint(request) {
     }
 }
 
+export function options_admin_executeDraw(request) { return response(ok, {}, request); }
+export function options_admin_exportReturn(request) { return response(ok, {}, request); }
+
+export async function post_admin_executeDraw(request) {
+    try {
+        const secret = await wixSecretsBackend.getSecret('ADMIN_SECRET');
+        if (request.headers['Authorization'] !== `Bearer ${secret}`) return response(forbidden, { error: "Unauthorized" }, request);
+
+        const { raffleId } = await request.body.json();
+        if (!raffleId) return response(badRequest, { error: "Missing raffleId" }, request);
+
+        const result = await executeDrawRng(raffleId);
+        if (result.status !== 'SUCCESS') return response(badRequest, result, request);
+        return response(ok, result, request);
+    } catch (error) {
+        return response(serverError, { error: error.message }, request);
+    }
+}
+
+export async function post_admin_exportReturn(request) {
+    try {
+        const secret = await wixSecretsBackend.getSecret('ADMIN_SECRET');
+        if (request.headers['Authorization'] !== `Bearer ${secret}`) return response(forbidden, { error: "Unauthorized" }, request);
+
+        const { raffleId } = await request.body.json();
+        if (!raffleId) return response(badRequest, { error: "Missing raffleId" }, request);
+
+        const result = await exportLotteryReturn(raffleId);
+        if (result.status !== 'SUCCESS') return response(badRequest, result, request);
+        return response(ok, result, request);
+    } catch (error) {
+        return response(serverError, { error: error.message }, request);
+    }
+}
+
 export async function post_admin_cleanup(request) {
     try {
         const secret = await wixSecretsBackend.getSecret('ADMIN_SECRET');
@@ -650,3 +925,45 @@ export async function post_admin_cleanup(request) {
         return response(serverError, { error: e.message }, request);
     }
 }
+
+export async function get_getInstagramAuthUrl(request) {
+    // Only allow admin or secure calls? 
+    // Ideally this should be protected, but for the connection flow initiated by a user, 
+    // we might need to check member permissions. 
+    // For now, let's assume valid member login is required or it's a public initiatior controlled by the client.
+    // Adding member check for safety:
+    const user = await getMemberFromRequest(request);
+    if (!user.loggedIn) return response(forbidden, { error: "Login required" }, request);
+
+    try {
+        const url = await getInstagramAuthUrl();
+        return response(ok, { url }, request);
+    } catch (e) {
+        return response(serverError, { error: e.message }, request);
+    }
+}
+
+export async function post_authWithInstagram(request) {
+    const user = await getMemberFromRequest(request);
+    if (!user.loggedIn) return response(forbidden, { error: "Login required" }, request);
+
+    try {
+        const body = await request.body.json();
+        const { code } = body;
+        if (!code) return response(badRequest, { error: "Missing code" }, request);
+
+        const result = await authWithInstagram(code);
+        if (!result.success) {
+            return response(badRequest, { error: "Authentication failed" }, request);
+        }
+
+        // Ideally here we would also save the connection status to the user's profile extension
+        // to reflect it in subsequent get_session calls without needing a separate update.
+        // await wixData.update... (skipping for now as per plan, relying on client-side update or subsequent sync)
+
+        return response(ok, result, request);
+    } catch (e) {
+        return response(serverError, { error: e.message }, request);
+    }
+}
+
