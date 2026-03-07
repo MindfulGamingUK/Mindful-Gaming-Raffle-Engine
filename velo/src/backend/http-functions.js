@@ -227,13 +227,10 @@ export async function get_session(request) {
 
 export async function get_rafflesActive(request) {
     try {
-        // closeDate stored as ISO string in CMS — filter by status then post-filter by date
         const results = await wixData.query(COLLECTIONS.RAFFLES)
             .eq('status', 'ACTIVE')
             .find({ suppressAuth: true });
-        const now = new Date().toISOString();
-        const active = results.items.filter(r => r.closeDate && r.closeDate >= now);
-        return response(ok, active, request);
+        return response(ok, results.items, request);
     } catch (error) {
         return response(serverError, { error: error.message }, request);
     }
