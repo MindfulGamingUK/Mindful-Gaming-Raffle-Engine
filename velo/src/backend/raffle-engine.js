@@ -40,7 +40,7 @@ function getSecureRandomInt(maxExclusive) {
         throw new Error('Secure RNG range exceeds 32-bit limit');
     }
 
-    const cryptoObj = globalThis.crypto;
+    const cryptoObj = (typeof crypto !== 'undefined') ? crypto : null;
     if (!cryptoObj || typeof cryptoObj.getRandomValues !== 'function') {
         throw new Error('Secure RNG unavailable in runtime');
     }
