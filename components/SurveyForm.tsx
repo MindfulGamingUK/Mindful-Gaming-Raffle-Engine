@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Button } from './Button';
 import { SurveyResponse } from '../types';
 import { post_surveyResponse } from '../services/api';
+import { surveyCategoryOptions } from '../data/prizeVault';
 
 export const SurveyForm: React.FC = () => {
     const [submitted, setSubmitted] = useState(false);
@@ -16,15 +17,7 @@ export const SurveyForm: React.FC = () => {
         marketingConsent: false
     });
 
-    const categoryOptions = [
-        'Consoles (PS5/Xbox)',
-        'Handhelds (Steam Deck)',
-        'PC Battlestations',
-        'Gaming Accessories',
-        'Game Keys / Subscriptions',
-        'Sim Racing Gear',
-        'Furniture / Chairs'
-    ];
+    const categoryOptions = surveyCategoryOptions;
 
     const toggleArray = (field: 'prizeCategories', value: string) => {
         const current = (form[field] as string[]) || [];
@@ -61,8 +54,8 @@ export const SurveyForm: React.FC = () => {
         return (
             <div className="bg-green-50 rounded-2xl p-8 text-center animate-fade-in border border-green-200 shadow-sm">
                 <span className="text-4xl mb-4 block">🎉</span>
-                <h3 className="text-xl font-bold text-green-900 mb-2">Thanks for shaping the future!</h3>
-                <p className="text-green-700 mb-6">We’ve recorded your preferences. Stay tuned for our first draws.</p>
+                <h3 className="text-xl font-bold text-green-900 mb-2">Thanks for shaping the queue.</h3>
+                <p className="text-green-700 mb-6">We have recorded which prizes matter most and what should move into the next wave of live draws.</p>
                 <Button variant="secondary" onClick={() => setSubmitted(false)}>Submit Another</Button>
             </div>
         );
@@ -71,7 +64,7 @@ export const SurveyForm: React.FC = () => {
     return (
         <form onSubmit={handleSubmit} className="bg-white rounded-2xl p-6 md:p-8 shadow-xl border border-gray-100 space-y-8 relative overflow-hidden">
             {/* Visual Header Decoration */}
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-brand-purple to-brand-teal"></div>
+            <div className="absolute top-0 left-0 h-1 w-full bg-gradient-to-r from-brand-plum via-brand-orange to-brand-green"></div>
 
             <div className="grid md:grid-cols-2 gap-8">
                 {/* Q1: Age Confirmation */}
@@ -98,7 +91,7 @@ export const SurveyForm: React.FC = () => {
                                 type="button"
                                 onClick={() => setForm({ ...form, takePartInterest: opt })}
                                 className={`py-3 rounded-lg font-bold text-sm border-2 transition-all ${form.takePartInterest === opt
-                                    ? 'border-brand-teal bg-brand-teal text-white shadow-md'
+                                    ? 'border-brand-green bg-brand-green text-white shadow-md'
                                     : 'border-gray-100 text-gray-500 hover:border-gray-300'}`}
                             >
                                 {opt}
@@ -127,7 +120,7 @@ export const SurveyForm: React.FC = () => {
 
             {/* Q4: Prize Interests */}
             <div className="space-y-3">
-                <label className="block text-sm font-bold text-gray-900 uppercase tracking-wide">4. What tech calls to you? (Select all)</label>
+                    <label className="block text-sm font-bold text-gray-900 uppercase tracking-wide">4. What should go live next? (Select all)</label>
                 <div className="flex flex-wrap gap-2">
                     {categoryOptions.map(cat => (
                         <button
@@ -135,8 +128,8 @@ export const SurveyForm: React.FC = () => {
                             type="button"
                             onClick={() => toggleArray('prizeCategories', cat)}
                             className={`px-4 py-2 rounded-full text-sm font-bold border transition-all ${form.prizeCategories?.includes(cat)
-                                ? 'border-brand-purple bg-brand-purple text-white shadow-md transform scale-105'
-                                : 'border-gray-200 bg-white text-gray-600 hover:border-brand-purple/50'}`}
+                                ? 'border-brand-plum bg-brand-plum text-white shadow-md transform scale-105'
+                                : 'border-gray-200 bg-white text-gray-600 hover:border-brand-green/50'}`}
                         >
                             {cat}
                         </button>
@@ -144,10 +137,10 @@ export const SurveyForm: React.FC = () => {
                 </div>
                 <input
                     type="text"
-                    placeholder="Other ideas? (e.g. Drones, VR Headsets...)"
+                    placeholder="Other ideas? (e.g. sim rigs, gift cards, collector bundles...)"
                     value={form.otherPrizeIdeas}
                     onChange={(e) => setForm({ ...form, otherPrizeIdeas: e.target.value })}
-                    className="w-full mt-2 p-3 text-sm border-b-2 border-gray-100 focus:border-brand-purple outline-none bg-transparent transition-colors"
+                    className="mt-2 w-full border-b-2 border-gray-100 bg-transparent p-3 text-sm outline-none transition-colors focus:border-brand-plum"
                 />
             </div>
 

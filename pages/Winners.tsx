@@ -53,7 +53,7 @@ export const Winners: React.FC = () => {
           <p className="text-5xl mb-4">🏆</p>
           <p className="text-gray-700 font-bold text-lg">No completed draws yet</p>
           <p className="text-gray-400 text-sm mt-2 mb-6">
-            Our first draw is scheduled for March 2026. Enter now for your chance to win.
+            Our first draw is launching soon. Enter now for your chance to win.
           </p>
           <Link to="/draws">
             <Button>View Live Draws</Button>
@@ -107,10 +107,10 @@ export const Winners: React.FC = () => {
       )}
 
       {/* Verification CTA */}
-      <div className="mt-12 bg-brand-surface rounded-2xl p-8 text-center space-y-3 border border-gray-100">
+      <div className="mt-12 bg-brand-mist rounded-2xl p-8 text-center space-y-3 border border-brand-dark/10">
         <p className="font-semibold text-gray-900">Need to verify a result?</p>
         <p className="text-sm text-gray-500 max-w-md mx-auto">
-          Full winner records and audit logs are available on request. All draws use cryptographic RNG with a tamper-evident log stored in Wix CMS.
+          Full winner records and audit logs are available on request. All draws use cryptographic RNG with a tamper-evident audit log retained by the platform.
         </p>
         <a href="mailto:info@mindfulgaminguk.org?subject=Winner%20verification%20request">
           <Button variant="secondary" className="mt-2">Request Full Winners List</Button>

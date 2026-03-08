@@ -19,24 +19,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getSession().then((u) => {
-      setUser(u);
-      setLoading(false);
-    });
+    getSession()
+      .then((u) => {
+        setUser(u);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   }, []);
 
   const login = async () => {
     setLoading(true);
-    const u = await apiLogin();
-    setUser(u);
-    setLoading(false);
+    try {
+      const u = await apiLogin();
+      setUser(u);
+    } catch (error) {
+      console.error('Login failed', error);
+      setUser(null);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const logout = async () => {
     setLoading(true);
-    await apiLogout();
-    setUser(null);
-    setLoading(false);
+    try {
+      await apiLogout();
+      setUser(null);
+    } catch (error) {
+      console.error('Logout failed', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const updateUser = async (updates: Partial<UserProfile>) => {

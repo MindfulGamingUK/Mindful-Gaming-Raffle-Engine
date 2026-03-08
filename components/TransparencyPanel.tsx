@@ -20,11 +20,11 @@ export const TransparencyPanel: React.FC<Props> = ({ ticketPrice, projectedDonat
       <div className="flex items-center gap-6">
         <div className="flex-1">
           <div className="flex justify-between text-sm mb-1.5">
-            <span className="font-bold text-brand-purple">{label}</span>
+            <span className="font-bold text-brand-plum">{label}</span>
             <span className="font-bold">{projectedDonationPercent}%</span>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
-            <div className="bg-brand-purple h-full rounded-full" style={{ width: `${projectedDonationPercent}%` }}></div>
+            <div className="bg-brand-plum h-full rounded-full" style={{ width: `${projectedDonationPercent}%` }}></div>
           </div>
           <p className="text-[11px] text-gray-500 mt-1.5 leading-tight">
             ~{formatCurrency(donationAmount)} per ticket helps fight Gaming Disorder.
@@ -39,7 +39,7 @@ export const TransparencyPanel: React.FC<Props> = ({ ticketPrice, projectedDonat
             <span className="font-semibold text-gray-600">{100 - projectedDonationPercent}%</span>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
-            <div className="bg-gray-400 h-full rounded-full" style={{ width: `${100 - projectedDonationPercent}%` }}></div>
+            <div className="bg-brand-green h-full rounded-full" style={{ width: `${100 - projectedDonationPercent}%` }}></div>
           </div>
           <p className="text-[11px] text-gray-500 mt-1.5 leading-tight">
             ~{formatCurrency(costsAmount)} covers prizes, transaction fees & admin.

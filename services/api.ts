@@ -1,5 +1,238 @@
 import { Raffle, RaffleStatus, RaffleType, PaymentProvider, MindfulContent, UserProfile, Entry, EntryIntent, AwarenessContent, PaymentSessionResponse, SurveyResponse, CompetitionQuestion } from '../types';
 import { getConfig } from '../utils/config';
+import { featuredPrizeVaultItems } from '../data/prizeVault';
+
+export interface PublicWinner {
+  _id: string;
+  drawType: RaffleType;
+  raffleTitle: string;
+  drawDate: string;
+  winningTicketDisplay: string;
+  winnerPublicLabel: string;
+  status: 'PRIZE_DISPATCHED' | 'CLAIMED' | 'PENDING';
+}
+
+interface SessionEnvelope {
+  loggedIn: boolean;
+  memberId?: string | null;
+  email?: string;
+  profileSupplement?: Partial<UserProfile> & { memberId?: string };
+  isEligible?: boolean;
+  isProfileComplete?: boolean;
+}
+
+const ACTIVE_RAFFLES_CACHE_KEY = 'mguk_active_raffles';
+const MOCK_USER_CACHE_KEY = 'mguk_mock_user';
+
+const normalizeProfileDate = (value: unknown): string | undefined => {
+  if (!value) return undefined;
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return value;
+  }
+
+  const parsed = new Date(value as string);
+  if (Number.isNaN(parsed.getTime())) {
+    return typeof value === 'string' ? value : undefined;
+  }
+
+  return parsed.toISOString().slice(0, 10);
+};
+
+const normalizeUserProfile = (payload: SessionEnvelope | UserProfile | (Partial<UserProfile> & { memberId?: string }) | null): UserProfile | null => {
+  if (!payload) return null;
+
+  if ('loggedIn' in payload) {
+    if (!payload.loggedIn) return null;
+
+    const supplement = payload.profileSupplement || {};
+    const merged = {
+      ...supplement,
+      _id: payload.memberId || supplement._id || supplement.memberId || 'member_session',
+      email: payload.email || supplement.email || ''
+    };
+
+    return {
+      ...(merged as UserProfile),
+      dob: normalizeProfileDate(merged.dob),
+      selfExclusionEndDate: merged.selfExclusionEndDate ? normalizeProfileDate(merged.selfExclusionEndDate) || null : null
+    };
+  }
+
+  const payloadWithMemberId = payload as Partial<UserProfile> & { memberId?: string };
+  const merged = {
+    ...payload,
+    _id: payload._id || payloadWithMemberId.memberId || 'member_session',
+    email: payload.email || ''
+  };
+
+  return {
+    ...(merged as UserProfile),
+    dob: normalizeProfileDate(merged.dob),
+    selfExclusionEndDate: merged.selfExclusionEndDate ? normalizeProfileDate(merged.selfExclusionEndDate) || null : null
+  };
+};
+
+// Specific, challenging skill questions for each prize competition.
+// Questions are prize-specific and require genuine hardware knowledge.
+type SkillQuestionEntry = {
+  question: string;
+  options: string[];
+  correctAnswerIndex: number;
+  explanation: string;
+  difficultyTag: 'EASY' | 'MEDIUM' | 'HARD';
+};
+
+const COMPETITION_SKILL_QUESTIONS: Record<string, SkillQuestionEntry> = {
+  vault_alienware_aurora_r16: {
+    question: "The Alienware Aurora R16 is powered by an NVIDIA RTX 4090. How much VRAM does the RTX 4090 carry, and what memory standard does it use?",
+    options: [
+      '16 GB GDDR6',
+      '24 GB GDDR6X',
+      '20 GB GDDR7',
+      '32 GB HBM3'
+    ],
+    correctAnswerIndex: 1,
+    explanation: 'The RTX 4090 ships with 24 GB of GDDR6X memory on a 384-bit bus, delivering over 1 TB/s of memory bandwidth — the reason it dominates 4K gaming and generative AI workloads.',
+    difficultyTag: 'HARD'
+  },
+  vault_corsair_vengeance_i8200: {
+    question: "The Corsair Vengeance i8200 uses an Intel Core i9-14900K. This chip is a hybrid design. How many Performance cores (P-cores) does it contain?",
+    options: ['6 P-cores', '8 P-cores', '12 P-cores', '16 P-cores'],
+    correctAnswerIndex: 1,
+    explanation: 'The i9-14900K combines 8 high-frequency Performance cores (P-cores) with 16 power-efficient E-cores for 24 total cores and 32 threads — allowing single-threaded gaming peak speeds alongside heavy multi-threaded workloads simultaneously.',
+    difficultyTag: 'HARD'
+  },
+  vault_nzxt_player_three_prime: {
+    question: "The NZXT Player Three Prime features the RTX 4080 Super. Compared to the standard RTX 4080, which of the following best describes the key hardware improvement in the Super variant?",
+    options: [
+      'Doubled VRAM from 8 GB to 16 GB',
+      'Increased CUDA core count from 9,728 to 10,240 with the same 16 GB GDDR6X memory',
+      'Switched to the next-generation Blackwell GPU architecture',
+      'Added a dedicated on-chip Neural Processing Unit (NPU)'
+    ],
+    correctAnswerIndex: 1,
+    explanation: 'The RTX 4080 Super bumped CUDA cores from 9,728 to 10,240 while keeping the same 16 GB GDDR6X memory and 256-bit bus. This delivered roughly 10–12% more gaming throughput than the original 4080 at the same launch price — making it the standout value pick in the Ada Lovelace high-end tier.',
+    difficultyTag: 'HARD'
+  }
+};
+
+const buildImageFit = (category: string): 'cover' | 'contain' => {
+  switch (category) {
+    case 'PHYSICAL_GAMES':
+    case 'GRAPHICS_CARDS':
+    case 'BUNDLES':
+      return 'cover';
+    default:
+      return 'contain';
+  }
+};
+
+const buildMockRaffles = (): Raffle[] => {
+  const config = getConfig();
+  const soldLevels = [482, 1280, 934, 1425, 219, 361, 177, 690];
+  const maxLevels = [1600, 1800, 1700, 2200, 900, 1000, 750, 1950];
+  const projectedDonation = {
+    [RaffleType.LOTTERY_RAFFLE]: 62,
+    [RaffleType.PRIZE_COMPETITION]: 56
+  };
+
+  return featuredPrizeVaultItems.map((item, index) => ({
+    _id: `raf_${item.slug}`,
+    assetKey: 'PLACEHOLDER',
+    wixProductId: item.id,
+    drawType: item.liveStrategy,
+    theme: item.theme,
+    title: item.title,
+    slug: item.slug,
+    description: item.shortBlurb,
+    specs: {
+      brand: item.platform.split(' / ')[0],
+      model: item.title,
+      condition: 'NEW',
+      retailValue: item.retailValueGbp
+    },
+    heroImageUrl: item.imageUrl,
+    galleryImageUrls: [item.imageUrl],
+    imageAlt: item.imageAlt,
+    imageFit: buildImageFit(item.category),
+    ticketPrice: item.entryPriceGbp,
+    maxTickets: maxLevels[index] || 1500,
+    soldTickets: soldLevels[index] || 320,
+    openDate: '2026-03-01T09:00:00Z',
+    closeDate: index % 2 === 0 ? '2026-03-31T23:59:59Z' : '2026-04-07T23:59:59Z',
+    drawDate: index % 2 === 0 ? '2026-04-02T18:00:00Z' : '2026-04-10T18:00:00Z',
+    status: RaffleStatus.ACTIVE,
+    promoterName: config.promoterName,
+    promoterAddress: config.promoterAddress,
+    localAuthority: config.localAuthorityName,
+    lotteryRegistrationRef: item.liveStrategy === RaffleType.LOTTERY_RAFFLE ? config.lotteryRegistrationRef : 'N/A (Prize Competition)',
+    charityNumber: config.charityNumber,
+    projectedDonation: projectedDonation[item.liveStrategy],
+    prizesValue: item.retailValueGbp,
+    skillQuestion: item.liveStrategy === RaffleType.PRIZE_COMPETITION
+      ? (COMPETITION_SKILL_QUESTIONS[item.id] ?? {
+          question: "Which component in a gaming PC is primarily responsible for rendering real-time 3D graphics?",
+          options: ['CPU', 'GPU (Graphics Card)', 'NVMe SSD', 'Power Supply Unit'],
+          correctAnswerIndex: 1,
+          explanation: 'The GPU (Graphics Processing Unit) handles all real-time 3D rendering in modern games, offloading this from the CPU to specialised shader cores.',
+          difficultyTag: 'MEDIUM'
+        } satisfies SkillQuestionEntry)
+      : undefined
+  }));
+};
+
+const cacheActiveRaffles = (raffles: Raffle[]) => {
+  if (typeof window !== 'undefined') {
+    window.sessionStorage.setItem(ACTIVE_RAFFLES_CACHE_KEY, JSON.stringify(raffles));
+  }
+};
+
+const readCachedActiveRaffles = (): Raffle[] => {
+  if (typeof window === 'undefined') {
+    return [];
+  }
+
+  const raw = window.sessionStorage.getItem(ACTIVE_RAFFLES_CACHE_KEY);
+  if (!raw) {
+    return [];
+  }
+
+  try {
+    return JSON.parse(raw) as Raffle[];
+  } catch {
+    return [];
+  }
+};
+
+const persistMockUser = (user: UserProfile | null) => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  if (!user) {
+    window.sessionStorage.removeItem(MOCK_USER_CACHE_KEY);
+    return;
+  }
+
+  window.sessionStorage.setItem(MOCK_USER_CACHE_KEY, JSON.stringify(user));
+};
+
+const readPersistedMockUser = (): UserProfile | null => {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  const raw = window.sessionStorage.getItem(MOCK_USER_CACHE_KEY);
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(raw) as UserProfile;
+  } catch {
+    return null;
+  }
+};
 
 // --- INTERFACE ---
 export interface IRaffleApi {
@@ -20,76 +253,16 @@ export interface IRaffleApi {
   logAwarenessEvent(contentId: string, interactionType: string): Promise<void>;
   post_surveyResponse(response: SurveyResponse): Promise<void>;
   fetchCompetitionQuestion(raffleId: string): Promise<CompetitionQuestion>;
+  getInstagramAuthUrl(): Promise<string>;
+  authWithInstagram(code: string): Promise<{ success: boolean; username?: string }>;
+  fetchWinners(): Promise<PublicWinner[]>;
 }
 
 // --- MOCK IMPLEMENTATION ---
 class MockRaffleApi implements IRaffleApi {
-  private user: UserProfile | null = null;
+  private user: UserProfile | null = readPersistedMockUser();
 
-  private raffles: Raffle[] = [
-    {
-      _id: 'raf_ps5_pro',
-      assetKey: 'PRIZE_PS5_PRO',
-      wixProductId: 'inv_ps5_001',
-      drawType: RaffleType.LOTTERY_RAFFLE,
-      theme: 'DEFAULT',
-      title: 'Sony PlayStation 5 Pro Bundle',
-      slug: 'ps5-pro-bundle',
-      description: 'The ultimate console experience. Includes PS5 Pro console, 2 DualSense Edge controllers, and a 12-month PS Plus Premium subscription.',
-      specs: { brand: 'Sony', model: 'PlayStation 5 Pro', condition: 'NEW', retailValue: 799.99 },
-      heroImageUrl: 'https://gmedia.playstation.com/is/image/SIEPDC/ps5-pro-vertical-product-shot-01-en-05sep24?$1600px$',
-      galleryImageUrls: [
-        'https://gmedia.playstation.com/is/image/SIEPDC/ps5-pro-dualsense-edge-image-block-01-en-05sep24?$1600px$',
-        'https://gmedia.playstation.com/is/image/SIEPDC/ps5-pro-horizontal-product-shot-01-en-05sep24?$1600px$'
-      ],
-      imageAlt: 'Sony PlayStation 5 Pro Console Vertical Stand',
-      ticketPrice: 2.00,
-      maxTickets: 2000,
-      soldTickets: 1420,
-      openDate: '2025-05-01T09:00:00Z',
-      closeDate: '2025-05-31T23:59:59Z',
-      drawDate: '2025-06-05T12:00:00Z',
-      status: RaffleStatus.ACTIVE,
-      promoterName: 'Board of Trustees',
-      promoterAddress: 'Mindful Gaming UK, B1 1AA',
-      localAuthority: 'Birmingham City Council',
-      lotteryRegistrationRef: 'LN/2025001',
-      charityNumber: '1212285',
-      projectedDonation: 60,
-      prizesValue: 950
-    },
-    {
-      _id: 'raf_pc_competition',
-      assetKey: 'PRIZE_PC',
-      wixProductId: 'comp_pc_001',
-      drawType: RaffleType.PRIZE_COMPETITION,
-      theme: 'NEON',
-      title: 'Ultimate RTX 4090 Gaming RIG',
-      slug: 'rtx-4090-competition',
-      description: 'A separate Prize Competition. Requires a skill question to enter. Not part of the Small Society Lottery.',
-      specs: { brand: 'Custom', model: 'Extreme RIG', condition: 'NEW', retailValue: 3500.00 },
-      heroImageUrl: 'https://cdna.pcpartpicker.com/static/forever/images/product/0fa2547b77592476b7b204680877960d.256p.jpg',
-      ticketPrice: 5.00,
-      maxTickets: 1000,
-      soldTickets: 250,
-      openDate: '2025-06-01T09:00:00Z',
-      closeDate: '2025-07-31T23:59:59Z',
-      drawDate: '2025-08-05T12:00:00Z',
-      status: RaffleStatus.ACTIVE,
-      skillQuestion: {
-        question: "In the game 'Minecraft', what is the main material used to build a portal to the Nether?",
-        options: ["Cobblestone", "Obsidian", "Bedrock", "Netherrack"],
-        correctAnswerIndex: 1
-      },
-      promoterName: 'Board of Trustees',
-      promoterAddress: 'Mindful Gaming UK, B1 1AA',
-      localAuthority: 'N/A (Prize Competition)',
-      lotteryRegistrationRef: 'N/A',
-      charityNumber: '1212285',
-      projectedDonation: 100,
-      prizesValue: 3500
-    }
-  ];
+  private raffles: Raffle[] = buildMockRaffles();
 
   async login(): Promise<UserProfile> {
     this.user = {
@@ -99,24 +272,31 @@ class MockRaffleApi implements IRaffleApi {
       lastName: 'Gamer',
       marketingConsent: false
     };
+    persistMockUser(this.user);
     return this.user;
   }
 
   async logout(): Promise<void> {
     this.user = null;
+    persistMockUser(null);
   }
 
   async getSession(): Promise<UserProfile | null> {
+    if (!this.user) {
+      this.user = readPersistedMockUser();
+    }
     return new Promise(r => setTimeout(() => r(this.user), 300));
   }
 
   async updateProfile(updates: Partial<UserProfile>): Promise<UserProfile> {
     if (!this.user) throw new Error("No session");
     this.user = { ...this.user, ...updates };
+    persistMockUser(this.user);
     return this.user;
   }
 
   async fetchActiveRaffles(): Promise<Raffle[]> {
+    cacheActiveRaffles(this.raffles);
     return new Promise(r => setTimeout(() => r(this.raffles), 400));
   }
 
@@ -125,14 +305,15 @@ class MockRaffleApi implements IRaffleApi {
   }
 
   async fetchMyEntries(): Promise<Entry[]> {
+    const featuredRaffle = this.raffles[0];
     const entries: Entry[] = [{
       _id: 'ent_1',
-      raffleId: 'raf_ps5_pro',
-      raffleTitle: 'Sony PlayStation 5 Pro Bundle',
+      raffleId: featuredRaffle?._id || 'raf_placeholder',
+      raffleTitle: featuredRaffle?.title || 'Featured Prize Draw',
       ticketNumbers: [1045, 1046],
-      purchaseDate: '2025-05-12T10:00:00Z',
+      purchaseDate: '2026-03-06T10:00:00Z',
       status: 'CONFIRMED',
-      totalPaid: 4.00
+      totalPaid: Number(((featuredRaffle?.ticketPrice || 1) * 2).toFixed(2))
     }];
     return new Promise(r => setTimeout(() => r(entries), 600));
   }
@@ -141,21 +322,18 @@ class MockRaffleApi implements IRaffleApi {
     return {
       id: 'mc_mock',
       type: 'PAUSE',
-      text: 'Take a breath. A 10-second pause can help you make clearer decisions.',
+      text: 'Take a breath. Support can be direct as well as playful, and a short pause makes both choices feel clearer.',
       durationSeconds: 5,
-      actionLabel: 'I am ready'
+      actionLabel: 'Continue mindfully'
     };
   }
 
   async createEntryIntent(raffleId: string, quantity: number, provider: PaymentProvider, skillAnswerIndex?: number): Promise<PaymentSessionResponse> {
     const intentId = `intent_${Date.now()}`;
-    const paymentUrl = provider === PaymentProvider.STRIPE
-      ? `https://checkout.stripe.com/pay/${intentId}`
-      : `https://www.paypal.com/checkoutnow?token=${intentId}`;
 
     return new Promise(r => setTimeout(() => r({
       intentId,
-      paymentUrl
+      paymentUrl: `/status/${intentId}`
     }), 800));
   }
 
@@ -206,15 +384,40 @@ class MockRaffleApi implements IRaffleApi {
   }
 
   async fetchCompetitionQuestion(raffleId: string): Promise<CompetitionQuestion> {
+    const raffle = this.raffles.find((item) => item._id === raffleId);
+    if (raffle?.skillQuestion) {
+      return {
+        _id: `${raffleId}_skill`,
+        questionText: raffle.skillQuestion.question,
+        options: raffle.skillQuestion.options,
+        correctAnswerIndex: raffle.skillQuestion.correctAnswerIndex,
+        explanation: raffle.skillQuestion.explanation ?? 'Answer the question correctly to qualify for this prize competition.',
+        difficultyTag: raffle.skillQuestion.difficultyTag ?? 'MEDIUM',
+        active: true
+      };
+    }
+
     return {
-      _id: 'cq_1',
-      questionText: "What is the capital of Great Britain?",
-      options: ["London", "Paris", "Berlin", "Rome"],
-      correctAnswerIndex: 0,
-      explanation: "London has been the capital of England and later the UK for centuries.",
-      difficultyTag: 'EASY',
+      _id: 'cq_fallback',
+      questionText: 'Which component in a gaming PC is primarily responsible for rendering real-time 3D graphics?',
+      options: ['CPU', 'GPU (Graphics Card)', 'NVMe SSD', 'Power Supply Unit'],
+      correctAnswerIndex: 1,
+      explanation: 'The GPU (Graphics Processing Unit) handles all real-time 3D rendering in modern games, offloading this from the CPU to specialised shader cores.',
+      difficultyTag: 'MEDIUM',
       active: true
     };
+  }
+
+  async getInstagramAuthUrl(): Promise<string> {
+    return new Promise(r => setTimeout(() => r('https://instagram.com/oauth/authorize'), 300));
+  }
+
+  async authWithInstagram(code: string): Promise<{ success: boolean; username?: string }> {
+    return new Promise(r => setTimeout(() => r({ success: true, username: 'mockuser' }), 500));
+  }
+
+  async fetchWinners(): Promise<PublicWinner[]> {
+    return new Promise(r => setTimeout(() => r([]), 500));
   }
 }
 
@@ -223,7 +426,7 @@ class VeloRaffleApi implements IRaffleApi {
   private baseUrl: string;
 
   constructor() {
-    this.baseUrl = (import.meta as any).env.VITE_WIX_API_URL || 'https://www.mindfulgaminguk.org/_functions';
+    this.baseUrl = getConfig().apiBaseUrl;
   }
 
   private async request<T>(endpoint: string, method: string = 'GET', body?: any): Promise<T> {
@@ -240,13 +443,32 @@ class VeloRaffleApi implements IRaffleApi {
     return response.json();
   }
 
-  async login() { return this.request<UserProfile>('/session'); }
+  async login() {
+    const session = await this.getSession();
+    if (!session) {
+      throw new Error('No active Wix member session was found.');
+    }
+    return session;
+  }
   async logout() { }
   async getSession() {
-    try { return await this.request<UserProfile | null>('/session'); } catch { return null; }
+    try {
+      const session = await this.request<SessionEnvelope | UserProfile | null>('/session');
+      return normalizeUserProfile(session);
+    } catch {
+      return null;
+    }
   }
   async updateProfile(updates: Partial<UserProfile>) {
-    return this.request<UserProfile>('/profileUpdate', 'POST', updates);
+    const [updated, session] = await Promise.all([
+      this.request<Partial<UserProfile> & { memberId?: string }>('/profileUpdate', 'POST', updates),
+      this.getSession()
+    ]);
+
+    return normalizeUserProfile({
+      ...(session || {}),
+      ...updated
+    }) as UserProfile;
   }
   async fetchActiveRaffles() { return this.request<Raffle[]>('/rafflesActive'); }
   async fetchRaffleBySlug(slug: string) { return this.request<Raffle>(`/raffleBySlug?slug=${slug}`); }
@@ -295,16 +517,47 @@ class VeloRaffleApi implements IRaffleApi {
   async fetchCompetitionQuestion(raffleId: string): Promise<CompetitionQuestion> {
     return this.request<CompetitionQuestion>(`/competitionQuestion?raffleId=${raffleId}`);
   }
+
+  async getInstagramAuthUrl(): Promise<string> {
+    return this.request<{ url: string }>('/instagramAuthUrl').then(res => res.url);
+  }
+
+  async authWithInstagram(code: string): Promise<{ success: boolean; username?: string }> {
+    return this.request<{ success: boolean; username?: string }>('/instagramAuth', 'POST', { code });
+  }
+
+  async fetchWinners(): Promise<PublicWinner[]> {
+    return this.request<PublicWinner[]>('/winners');
+  }
 }
 
 const config = getConfig();
 const api = config.apiMode === 'VELO' ? new VeloRaffleApi() : new MockRaffleApi();
 
+export const getCachedActiveRaffles = (): Raffle[] => {
+  const cached = readCachedActiveRaffles();
+  if (cached.length > 0) {
+    return cached;
+  }
+
+  if (config.apiMode === 'MOCK') {
+    const mockRaffles = buildMockRaffles();
+    cacheActiveRaffles(mockRaffles);
+    return mockRaffles;
+  }
+
+  return [];
+};
+
 export const login = () => api.login();
 export const logout = () => api.logout();
 export const getSession = () => api.getSession();
 export const updateProfile = (u: Partial<UserProfile>) => api.updateProfile(u);
-export const fetchActiveRaffles = () => api.fetchActiveRaffles();
+export const fetchActiveRaffles = async () => {
+  const raffles = await api.fetchActiveRaffles();
+  cacheActiveRaffles(raffles);
+  return raffles;
+};
 export const fetchRaffleBySlug = (s: string) => api.fetchRaffleBySlug(s);
 export const fetchMyEntries = () => api.fetchMyEntries();
 export const fetchMindfulContent = () => api.fetchMindfulContent();
@@ -317,3 +570,6 @@ export const fetchAwarenessRandom = () => api.fetchAwarenessRandom();
 export const logAwarenessEvent = (id: string, type: string) => api.logAwarenessEvent(id, type);
 export const post_surveyResponse = (r: SurveyResponse) => api.post_surveyResponse(r);
 export const fetchCompetitionQuestion = (id: string) => api.fetchCompetitionQuestion(id);
+export const getInstagramAuthUrl = () => api.getInstagramAuthUrl();
+export const authWithInstagram = (code: string) => api.authWithInstagram(code);
+export const fetchWinners = () => api.fetchWinners();

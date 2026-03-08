@@ -65,6 +65,7 @@ export interface Raffle {
   heroImageUrl?: string;
   galleryImageUrls?: string[];
   imageAlt?: string;
+  imageFit?: 'cover' | 'contain';
   imageSourceNote?: string;
   ticketPrice: number;
   maxTickets: number;
@@ -88,11 +89,13 @@ export interface Raffle {
   projectedDonation: number; // Percentage
   prizesValue: number;
 
-  // Competition 
+  // Competition
   skillQuestion?: {
     question: string;
     options: string[];
     correctAnswerIndex: number; // Only for PRIZE_COMPETITION
+    explanation?: string;
+    difficultyTag?: 'EASY' | 'MEDIUM' | 'HARD';
   };
 
   // Results

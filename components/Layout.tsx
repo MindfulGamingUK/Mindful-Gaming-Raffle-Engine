@@ -1,80 +1,132 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { getShellMode } from '../utils/shell';
-import { isUsingDefaultConfig } from '../utils/config';
+import { getConfig, isUsingDefaultConfig } from '../utils/config';
 import { ComplianceBlock } from './ComplianceBlock';
 import { useAuth } from '../contexts/AuthContext';
+import { Button } from './Button';
 
 export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const location = useLocation();
   const shellMode = getShellMode();
   const { user, login, logout } = useAuth();
+  const config = getConfig();
   const showDevWarning = isUsingDefaultConfig() && process.env.NODE_ENV !== 'production';
-  
-  const NavLink = ({ to, label }: { to: string, label: string }) => (
-    <Link 
-      to={to} 
-      className={`text-sm font-medium transition-colors ${location.pathname === to ? 'text-brand-purple' : 'text-gray-600 hover:text-brand-purple'}`}
-    >
-      {label}
-    </Link>
-  );
+
+  const navItems = [
+    { to: '/draws', label: 'Prize Vault' },
+    { to: '/transparency', label: 'Transparency' },
+    { to: '/support', label: 'Support' }
+  ];
+
+  const NavLink = ({ to, label }: { to: string, label: string }) => {
+    const active = location.pathname === to;
+    return (
+      <Link
+        to={to}
+        className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${
+          active
+            ? 'border-brand-yellow bg-brand-yellow text-brand-dark shadow-lg shadow-brand-yellow/20'
+            : 'border-white/10 bg-white/10 text-white hover:border-brand-yellow/40 hover:bg-white/15'
+        }`}
+      >
+        {label}
+      </Link>
+    );
+  };
 
   const Header = () => (
-    <nav className="bg-white border-b border-gray-200 sticky top-0 z-50">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-        <Link to="/" className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-brand-purple rounded-lg flex items-center justify-center text-white font-bold shadow-sm">M</div>
-          <span className="font-bold text-lg tracking-tight text-gray-900">Mindful Gaming</span>
+    <header className="sticky top-0 z-50 border-b border-brand-orange/70 bg-brand-plum/95 text-white shadow-[0_18px_50px_rgba(22,15,34,0.25)] backdrop-blur">
+      <div className="h-1 w-full bg-gradient-to-r from-brand-orange via-brand-yellow to-brand-green" />
+      <nav className="mx-auto flex max-w-6xl items-center justify-between gap-6 px-4 py-4 sm:px-6">
+        <Link to="/" className="flex items-center gap-3">
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/15 bg-white/10 text-lg font-black text-brand-yellow shadow-lg shadow-black/10">
+            MG
+          </div>
+          <div>
+            <p className="text-[11px] font-black uppercase tracking-[0.36em] text-brand-green">Mindful Gaming UK</p>
+            <p className="text-sm text-white/70">Prize vault, raffles, and direct support</p>
+          </div>
         </Link>
-        
-        <div className="hidden md:flex items-center gap-8">
-          <NavLink to="/draws" label="Draws" />
-          <NavLink to="/transparency" label="Transparency" />
-          <NavLink to="/support" label="Support" />
+
+        <div className="hidden items-center gap-3 lg:flex">
+          {navItems.map((item) => (
+            <NavLink key={item.to} to={item.to} label={item.label} />
+          ))}
+        </div>
+
+        <div className="flex items-center gap-3">
+          <a href={config.charityLinks.donationFormUrl} target="_blank" rel="noreferrer" className="hidden sm:block">
+            <Button className="bg-brand-yellow text-brand-dark hover:bg-[#efe72c] focus:ring-brand-yellow">
+              Donate Instead
+            </Button>
+          </a>
           {user ? (
-            <Link to="/profile" className="w-8 h-8 rounded-full bg-brand-teal text-white flex items-center justify-center hover:bg-teal-600 transition ring-2 ring-offset-2 ring-transparent hover:ring-brand-teal/30">
+            <Link to="/profile" className="flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-white/10 text-sm font-black text-white transition hover:bg-white/20">
               <span className="text-xs font-bold">{user.firstName?.charAt(0) || 'U'}</span>
             </Link>
           ) : (
-            <button onClick={() => login()} className="text-sm font-bold text-brand-purple hover:underline">
+            <button onClick={() => login()} className="text-sm font-bold text-brand-yellow hover:text-white">
               Login
             </button>
           )}
         </div>
-      </div>
-    </nav>
+      </nav>
+    </header>
   );
 
   const BigFooter = () => (
-    <footer className="bg-brand-dark text-gray-400 py-12 text-sm mt-auto border-t-4 border-brand-purple">
-      <div className="max-w-5xl mx-auto px-4 grid md:grid-cols-4 gap-8">
-        <div className="col-span-2">
-          <h5 className="text-white font-bold mb-4">Mindful Gaming UK</h5>
-          <p className="mb-4 text-gray-500">Promoting mental wellness through the love of gaming.</p>
-          <div className="bg-white/5 p-4 rounded-lg">
-             <ComplianceBlock variant="MINIMAL" />
+    <footer className="mt-auto border-t border-brand-orange/40 bg-brand-dark text-white">
+      <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6">
+        <div className="grid gap-10 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
+          <div className="space-y-5">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.36em] text-brand-green">Mindful Gaming UK</p>
+              <h5 className="mt-3 text-3xl font-black tracking-tight text-brand-yellow">Play with purpose. Give with intent.</h5>
+            </div>
+            <p className="max-w-md text-sm leading-6 text-white/70">
+              Support the charity directly, explore upcoming prizes, and follow each draw as it opens.
+            </p>
+            <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
+              <ComplianceBlock variant="MINIMAL" />
+            </div>
           </div>
-        </div>
-        <div>
-          <h5 className="text-white font-bold mb-4">Support</h5>
-          <ul className="space-y-2">
-            <li><Link to="/transparency" className="hover:text-white transition">Where funds go</Link></li>
-            <li><Link to="/support" className="hover:text-white transition">FAQ & Contact</Link></li>
-            <li><a href="https://www.begambleaware.org" target="_blank" className="hover:text-white transition">BeGambleAware.org</a></li>
-          </ul>
-        </div>
-        <div>
-          <h5 className="text-white font-bold mb-4">Account</h5>
-          {user ? (
-             <ul className="space-y-2">
-              <li><Link to="/profile" className="hover:text-white transition">Settings</Link></li>
-              <li><Link to="/my-entries" className="hover:text-white transition">Ticket Wallet</Link></li>
-              <li><button onClick={() => logout()} className="hover:text-white transition">Logout</button></li>
-             </ul>
-          ) : (
-             <button onClick={() => login()} className="hover:text-white transition">Member Login</button>
-          )}
+
+          <div>
+            <h5 className="mb-4 text-sm font-black uppercase tracking-[0.28em] text-brand-yellow">Direct Support</h5>
+            <ul className="space-y-3 text-sm text-white/70">
+              <li><a href={config.charityLinks.donationFormUrl} target="_blank" rel="noreferrer" className="transition hover:text-white">Donate through live form</a></li>
+              <li><a href={config.charityLinks.donateUrl} target="_blank" rel="noreferrer" className="transition hover:text-white">Donation page</a></li>
+              <li><a href={config.charityLinks.donateGamesUrl} target="_blank" rel="noreferrer" className="transition hover:text-white">Donate games and hardware</a></li>
+              <li><a href={config.charityLinks.easyFundraisingUrl} target="_blank" rel="noreferrer" className="transition hover:text-white">Easyfundraising</a></li>
+            </ul>
+          </div>
+
+          <div>
+            <h5 className="mb-4 text-sm font-black uppercase tracking-[0.28em] text-brand-yellow">Charity Links</h5>
+            <ul className="space-y-3 text-sm text-white/70">
+              <li><a href={config.charityLinks.aboutUrl} target="_blank" rel="noreferrer" className="transition hover:text-white">About the charity</a></li>
+              <li><a href={config.charityLinks.projectsUrl} target="_blank" rel="noreferrer" className="transition hover:text-white">Help us get started</a></li>
+              <li><a href={config.charityLinks.resourcesUrl} target="_blank" rel="noreferrer" className="transition hover:text-white">Resources and articles</a></li>
+              <li><a href={config.charityLinks.volunteerUrl} target="_blank" rel="noreferrer" className="transition hover:text-white">Volunteer</a></li>
+            </ul>
+          </div>
+
+          <div>
+            <h5 className="mb-4 text-sm font-black uppercase tracking-[0.28em] text-brand-yellow">Account</h5>
+            {user ? (
+              <ul className="space-y-3 text-sm text-white/70">
+                <li><Link to="/profile" className="transition hover:text-white">Settings</Link></li>
+                <li><Link to="/my-entries" className="transition hover:text-white">Ticket wallet</Link></li>
+                <li><button onClick={() => logout()} className="transition hover:text-white">Logout</button></li>
+              </ul>
+            ) : (
+              <button onClick={() => login()} className="text-sm font-semibold text-white/70 transition hover:text-white">
+                Member login
+              </button>
+            )}
+            <p className="mt-6 text-xs uppercase tracking-[0.24em] text-white/40">Charity no. {config.charityNumber}</p>
+          </div>
         </div>
       </div>
     </footer>
@@ -83,33 +135,34 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   return (
     <>
       {showDevWarning && (
-        <div className="bg-orange-500 text-white text-xs text-center py-1 font-bold">
-           DEV MODE: Using Default Config / Mock API
+        <div className="bg-brand-orange py-1 text-center text-xs font-bold text-white">
+           Preview mode: demo data is active.
         </div>
       )}
 
       {shellMode === 'EMBEDDED' ? (
-        <div className="min-h-[50vh] flex flex-col bg-transparent font-sans text-gray-900">
-          <div className="bg-white/80 backdrop-blur border-b border-gray-200 p-3 flex justify-between items-center md:hidden sticky top-0 z-40">
-             <Link to="/" className="font-bold text-brand-purple flex items-center gap-2">
-               <span className="w-6 h-6 bg-brand-purple text-white rounded flex items-center justify-center text-xs">M</span>
+        <div className="flex min-h-[50vh] flex-col bg-transparent font-sans text-gray-900">
+          <div className="sticky top-0 z-40 flex items-center justify-between border-b border-brand-orange/40 bg-brand-plum/95 p-3 text-white backdrop-blur md:hidden">
+             <Link to="/" className="flex items-center gap-2 text-sm font-black tracking-[0.24em] text-brand-yellow">
+               <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-yellow text-brand-dark">M</span>
                MGUK
              </Link>
-             <div className="flex gap-4 text-xs font-medium">
-               <Link to="/draws">Draws</Link>
+             <div className="flex items-center gap-4 text-xs font-medium">
+               <Link to="/draws">Vault</Link>
+               <a href={config.charityLinks.donationFormUrl} target="_blank" rel="noreferrer">Donate</a>
                {user ? <Link to="/profile">Profile</Link> : <button onClick={() => login()}>Login</button>}
              </div>
           </div>
           
-          <main className="flex-grow w-full max-w-5xl mx-auto md:px-4 md:py-6 animate-fadeIn pb-8">
+          <main className="mx-auto w-full max-w-6xl flex-grow pb-8 md:px-4 md:py-6 animate-fadeIn">
             {children}
-            <div className="mt-12 bg-gray-50 rounded-lg">
+            <div className="mt-12 rounded-3xl border border-brand-dark/10 bg-white/80 p-1">
               <ComplianceBlock variant="MINIMAL" />
             </div>
           </main>
         </div>
       ) : (
-        <div className="min-h-screen flex flex-col bg-gray-50 text-gray-900 font-sans">
+        <div className="flex min-h-screen flex-col bg-transparent text-gray-900 font-sans">
           <Header />
           <main className="flex-grow">
             {children}

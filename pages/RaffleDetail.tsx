@@ -13,6 +13,7 @@ import { FlashcardMoment } from '../components/Flashcards';
 import { fetchAwarenessFeed, fetchCompetitionQuestion } from '../services/api';
 import { RaffleType, CompetitionQuestion } from '../types';
 import { formatWixMediaUrl } from '../utils/wixMedia';
+import { getConfig } from '../utils/config';
 
 type Step = 'OVERVIEW' | 'PROFILE_GATE' | 'MINDFUL' | 'FLASHCARDS' | 'CART' | 'SKILL_QUESTION' | 'PAYMENT';
 
@@ -32,6 +33,7 @@ export const RaffleDetail: React.FC = () => {
   const [skillGatePassed, setSkillGatePassed] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
 
   // Gating Form State
   const [dobInput, setDobInput] = useState('');
@@ -41,6 +43,7 @@ export const RaffleDetail: React.FC = () => {
 
   // Image State
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const config = getConfig();
 
   useEffect(() => {
     if (!slug) return;
@@ -132,7 +135,7 @@ export const RaffleDetail: React.FC = () => {
         window.location.href = paymentUrl;
       }
     } catch (e: any) {
-      alert(e.message || "Payment initiation failed. Please try again.");
+      setPaymentError(e.message || 'Payment initiation failed. Please try again.');
       setSubmitting(false);
     }
   };
@@ -148,6 +151,7 @@ export const RaffleDetail: React.FC = () => {
   if (!raffle) return <div className="p-12 text-center animate-pulse">Loading Raffle...</div>;
 
   const isClosed = raffle.status === RaffleStatus.CLOSED || raffle.status === RaffleStatus.DRAWN || raffle.status === RaffleStatus.SOLD_OUT;
+  const usesContainFit = raffle.imageFit === 'contain';
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
@@ -162,11 +166,15 @@ export const RaffleDetail: React.FC = () => {
 
         {/* LEFT COLUMN: Visuals & Info */}
         <div className="lg:col-span-7 space-y-8">
-          <div className="relative rounded-2xl overflow-hidden shadow-2xl bg-gray-100 group">
+          <div className={`relative rounded-2xl overflow-hidden shadow-2xl group ${usesContainFit ? 'bg-gradient-to-br from-white via-brand-mist to-[#d9e8dd]' : 'bg-gray-100'}`}>
             <img
               src={formatWixMediaUrl(selectedImage || raffle.heroImageUrl || getAsset(raffle.assetKey))}
               alt={raffle.imageAlt || raffle.title}
-              className="w-full h-80 lg:h-96 object-cover"
+              onError={(event) => {
+                event.currentTarget.onerror = null;
+                event.currentTarget.src = '/assets/prizes/placeholder.svg';
+              }}
+              className={`w-full h-80 lg:h-96 ${usesContainFit ? 'object-contain p-8' : 'object-cover'}`}
             />
             <div className="absolute top-4 left-4">
               <span className={`px-3 py-1 rounded-full text-xs font-bold shadow-md ${raffle.drawType === RaffleType.LOTTERY_RAFFLE ? 'bg-brand-purple text-white' : 'bg-brand-teal text-white'}`}>
@@ -182,7 +190,15 @@ export const RaffleDetail: React.FC = () => {
                 onClick={() => setSelectedImage(raffle.heroImageUrl || getAsset(raffle.assetKey))}
                 className={`min-w-[80px] h-20 rounded-lg overflow-hidden cursor-pointer border-2 transition-all ${(!selectedImage || selectedImage === raffle.heroImageUrl) ? 'border-brand-purple scale-105' : 'border-transparent opacity-70 hover:opacity-100'}`}
               >
-                <img src={formatWixMediaUrl(raffle.heroImageUrl || getAsset(raffle.assetKey), 200, 200)} className="w-full h-full object-cover" alt="Main" />
+                <img
+                  src={formatWixMediaUrl(raffle.heroImageUrl || getAsset(raffle.assetKey), 200, 200)}
+                  onError={(event) => {
+                    event.currentTarget.onerror = null;
+                    event.currentTarget.src = '/assets/prizes/placeholder.svg';
+                  }}
+                  className={`w-full h-full ${usesContainFit ? 'object-contain bg-brand-mist p-2' : 'object-cover'}`}
+                  alt="Main"
+                />
               </div>
               {raffle.galleryImageUrls.map((url, i) => (
                 <div
@@ -190,14 +206,18 @@ export const RaffleDetail: React.FC = () => {
                   onClick={() => setSelectedImage(url)}
                   className={`min-w-[80px] h-20 rounded-lg overflow-hidden cursor-pointer border-2 transition-all ${selectedImage === url ? 'border-brand-purple scale-105' : 'border-transparent opacity-70 hover:opacity-100'}`}
                 >
-                  <img src={formatWixMediaUrl(url, 200, 200)} className="w-full h-full object-cover" alt={`Gallery ${i + 1}`} />
+                  <img
+                    src={formatWixMediaUrl(url, 200, 200)}
+                    onError={(event) => {
+                      event.currentTarget.onerror = null;
+                      event.currentTarget.src = '/assets/prizes/placeholder.svg';
+                    }}
+                    className={`w-full h-full ${usesContainFit ? 'object-contain bg-brand-mist p-2' : 'object-cover'}`}
+                    alt={`Gallery ${i + 1}`}
+                  />
                 </div>
               ))}
             </div>
-          )}
-
-          {raffle.imageSourceNote && (
-            <p className="text-xs text-gray-400 italic mt-2">Image usage: {raffle.imageSourceNote}</p>
           )}
 
           <div className="prose prose-purple max-w-none">
@@ -226,14 +246,14 @@ export const RaffleDetail: React.FC = () => {
 
         {/* RIGHT COLUMN: The Interaction Card */}
         <div className="lg:col-span-5">
-          <div className="bg-white border border-gray-200 shadow-xl rounded-2xl p-6 lg:p-8 sticky top-24">
+          <div className="bg-white/95 border border-brand-dark/10 shadow-[0_30px_80px_rgba(40,26,57,0.12)] rounded-[28px] p-6 lg:p-8 sticky top-24">
 
             <div className="flex justify-between items-start mb-6 border-b border-gray-100 pb-6">
               <div>
                 <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Price per Entry</p>
-                <p className="text-3xl font-extrabold text-brand-purple">{formatCurrency(raffle.ticketPrice)}</p>
+                <p className="text-3xl font-extrabold text-brand-plum">{formatCurrency(raffle.ticketPrice)}</p>
                 {raffle.drawType === RaffleType.PRIZE_COMPETITION && (
-                  <p className="text-[10px] text-accent-primary font-bold uppercase mt-1">Skill Question Required</p>
+                  <p className="text-[10px] text-brand-green font-bold uppercase mt-1">Skill Question Required</p>
                 )}
               </div>
               <div className="text-right">
@@ -250,6 +270,25 @@ export const RaffleDetail: React.FC = () => {
               </div>
             ) : (
               <>
+                <div className="mb-6 rounded-2xl border border-brand-yellow/40 bg-brand-yellow/10 p-4 text-sm text-slate-700">
+                  <p className="font-bold text-brand-plum">Prefer to support directly?</p>
+                  <p className="mt-2 leading-6">
+                    Tickets help Mindful Gaming UK, but if someone simply wants to donate, use the live charity form instead of entering a draw.
+                  </p>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <a href={config.charityLinks.donationFormUrl} target="_blank" rel="noreferrer" className="block">
+                      <Button className="w-full bg-brand-yellow text-brand-dark hover:bg-[#efe72c] focus:ring-brand-yellow">
+                        Donate Through Form
+                      </Button>
+                    </a>
+                    <a href={config.charityLinks.donateUrl} target="_blank" rel="noreferrer" className="block">
+                      <Button variant="secondary" className="w-full border-brand-plum text-brand-plum hover:bg-brand-plum hover:text-white">
+                        Donation Page
+                      </Button>
+                    </a>
+                  </div>
+                </div>
+
                 {/* 1. OVERVIEW */}
                 {step === 'OVERVIEW' && (
                   <div className="animate-fadeIn space-y-6">
@@ -263,11 +302,11 @@ export const RaffleDetail: React.FC = () => {
                       </div>
                     </div>
 
-                    <Button className="w-full py-4 text-lg shadow-lg shadow-brand-purple/20" onClick={handleStartEntry}>
-                      {user ? 'Purchase Tickets' : 'Login to Enter'}
+                    <Button className="w-full py-4 text-lg shadow-lg shadow-brand-green/20" onClick={handleStartEntry}>
+                      {user ? 'Enter This Draw' : 'Login to Enter'}
                     </Button>
 
-                    <div className="bg-blue-50 text-blue-800 text-xs p-3 rounded-lg flex gap-2 items-start">
+                    <div className="bg-brand-mist text-slate-700 text-xs p-3 rounded-lg flex gap-2 items-start">
                       <span className="text-base">ℹ️</span>
                       <div>
                         <p className="font-bold">Entry Requirements</p>
@@ -305,7 +344,7 @@ export const RaffleDetail: React.FC = () => {
                       </label>
                       <label className="flex items-start gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
                         <input type="checkbox" checked={termsChecked} onChange={e => setTermsChecked(e.target.checked)} className="mt-1 w-4 h-4 text-brand-purple rounded" />
-                        <span className="text-xs text-gray-700">I accept the Terms and understand this is NOT a donation.</span>
+                        <span className="text-xs text-gray-700">I accept the terms and understand ticket purchases are not donations.</span>
                       </label>
                     </div>
                     <Button className="w-full mt-4" onClick={handleGateSubmit} isLoading={submitting}>Confirm & Continue</Button>
@@ -338,9 +377,9 @@ export const RaffleDetail: React.FC = () => {
                   <div className="animate-fadeIn">
                     <h3 className="font-bold text-gray-900 mb-6 text-center">How many tickets?</h3>
                     <div className="flex items-center justify-center gap-6 mb-8">
-                      <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="w-12 h-12 rounded-full border-2 border-gray-200 hover:border-brand-purple hover:text-brand-purple font-bold text-xl transition-colors">-</button>
-                      <div className="text-center w-16"><span className="text-4xl font-extrabold text-brand-purple">{quantity}</span></div>
-                      <button onClick={() => setQuantity(Math.min(20, quantity + 1))} className="w-12 h-12 rounded-full border-2 border-gray-200 hover:border-brand-purple hover:text-brand-purple font-bold text-xl transition-colors">+</button>
+                      <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="w-12 h-12 rounded-full border-2 border-gray-200 hover:border-brand-plum hover:text-brand-plum font-bold text-xl transition-colors">-</button>
+                      <div className="text-center w-16"><span className="text-4xl font-extrabold text-brand-plum">{quantity}</span></div>
+                      <button onClick={() => setQuantity(Math.min(20, quantity + 1))} className="w-12 h-12 rounded-full border-2 border-gray-200 hover:border-brand-plum hover:text-brand-plum font-bold text-xl transition-colors">+</button>
                     </div>
                     <div className="bg-gray-50 rounded-xl p-4 mb-6 flex justify-between items-center border border-gray-100">
                       <span className="text-gray-600 font-medium">Total to Pay</span>
@@ -349,6 +388,11 @@ export const RaffleDetail: React.FC = () => {
                     <Button className="w-full py-3" onClick={() => setStep(raffle.drawType === RaffleType.PRIZE_COMPETITION ? 'SKILL_QUESTION' : 'PAYMENT')}>
                       Proceed to Checkout
                     </Button>
+                    <a href={config.charityLinks.donationFormUrl} target="_blank" rel="noreferrer" className="block">
+                      <Button variant="secondary" className="mt-3 w-full border-brand-plum text-brand-plum hover:bg-brand-plum hover:text-white">
+                        Donate Instead
+                      </Button>
+                    </a>
                     <button onClick={() => setStep('OVERVIEW')} className="w-full mt-3 text-sm text-gray-400 hover:text-gray-600">Cancel</button>
                   </div>
                 )}
@@ -415,6 +459,11 @@ export const RaffleDetail: React.FC = () => {
                 {step === 'PAYMENT' && (
                   <div className="animate-fadeIn space-y-4">
                     <h3 className="font-bold text-gray-900 mb-2">Select Payment Method</h3>
+                    {paymentError && (
+                      <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 leading-relaxed">
+                        {paymentError}
+                      </div>
+                    )}
                     <div className="bg-yellow-50 border border-yellow-200 p-3 text-[11px] text-yellow-800 rounded-lg flex items-start gap-2 leading-relaxed">
                       <span>⚠️</span>
                       <div>
@@ -427,7 +476,12 @@ export const RaffleDetail: React.FC = () => {
                     <button onClick={() => handlePayment(PaymentProvider.PAYPAL)} disabled={submitting} className="w-full bg-[#FFC439] text-black py-3.5 rounded-lg font-bold hover:brightness-95 transition flex justify-center items-center gap-2 shadow-sm">
                       <span>PayPal</span>
                     </button>
-                    <button onClick={() => setStep('CART')} className="w-full text-sm text-gray-500 mt-2 hover:underline">Back to Quantity</button>
+                    <button onClick={() => { setStep('CART'); setPaymentError(null); }} className="w-full text-sm text-gray-500 mt-2 hover:underline">Back to Quantity</button>
+                    <a href={config.charityLinks.donationFormUrl} target="_blank" rel="noreferrer" className="block">
+                      <Button variant="secondary" className="mt-2 w-full border-brand-plum text-brand-plum hover:bg-brand-plum hover:text-white">
+                        Donate Instead
+                      </Button>
+                    </a>
                   </div>
                 )}
               </>

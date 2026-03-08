@@ -1,96 +1,148 @@
-import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Raffle, RaffleType } from '../types';
-import { fetchActiveRaffles } from '../services/api';
-import { getAsset } from '../utils/assets';
-import { getTheme } from '../utils/theme';
-import { calculateProgress, formatCurrency } from '../utils/formatting';
+import { fetchActiveRaffles, getCachedActiveRaffles } from '../services/api';
+import { DrawCard } from '../components/DrawCard';
+import { PrizeVault } from '../components/PrizeVault';
+import { getConfig } from '../utils/config';
+import { Button } from '../components/Button';
+
+type DrawTab = 'LOTTERY' | 'COMPETITION';
 
 export const DrawsCatalogue: React.FC = () => {
-  const [raffles, setRaffles] = useState<Raffle[]>([]);
-  const [filter, setFilter] = useState<'ALL' | RaffleType>('ALL');
+  const [raffles, setRaffles] = useState<Raffle[]>(() => getCachedActiveRaffles());
+  const [activeTab, setActiveTab] = useState<DrawTab>('LOTTERY');
+  const config = getConfig();
 
   useEffect(() => {
-    fetchActiveRaffles().then(setRaffles);
+    fetchActiveRaffles()
+      .then(setRaffles)
+      .catch((error) => {
+        console.error('Failed to load active raffles', error);
+      });
   }, []);
 
-  const filteredRaffles = filter === 'ALL'
-    ? raffles
-    : raffles.filter(r => r.drawType === filter);
+  const lotteryRaffles = useMemo(
+    () => raffles.filter((r) => r.drawType === RaffleType.LOTTERY_RAFFLE),
+    [raffles]
+  );
+
+  const competitionRaffles = useMemo(
+    () => raffles.filter((r) => r.drawType === RaffleType.PRIZE_COMPETITION),
+    [raffles]
+  );
+
+  const visibleRaffles = activeTab === 'LOTTERY' ? lotteryRaffles : competitionRaffles;
 
   return (
-    <div className="px-4 py-8">
-      <div className="flex flex-col md:flex-row justify-between items-center mb-10 gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-brand-dark">Active Draws</h1>
-          <p className="text-gray-500 mt-1">Support mental health initiatives by entering our compliant raffles.</p>
+    <div className="space-y-14 px-4 py-8 sm:px-6 lg:px-8">
+      <section className="overflow-hidden rounded-[36px] border border-brand-dark/10 bg-white/92 shadow-[0_30px_100px_rgba(40,26,57,0.1)]">
+        <div className="grid gap-8 px-6 py-8 lg:grid-cols-[1fr_0.9fr] lg:px-10 lg:py-10">
+          <div className="space-y-5">
+            <p className="text-xs font-black uppercase tracking-[0.32em] text-brand-green">Catalogue</p>
+            <h1 className="text-4xl font-black tracking-tight text-brand-plum sm:text-5xl">Live draws and the full prize queue</h1>
+            <p className="max-w-3xl text-sm leading-7 text-slate-600 sm:text-base">
+              Lottery draws are entered by chance — buy a ticket and you are in the draw. Prize competitions require a correct answer to a skill question before payment. Both types directly fund Mindful Gaming UK.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <a href={config.charityLinks.donationFormUrl} target="_blank" rel="noreferrer">
+                <Button>Donate to the Charity</Button>
+              </a>
+              <a href={config.charityLinks.donateGamesUrl} target="_blank" rel="noreferrer">
+                <Button variant="secondary">Donate Games or Kit</Button>
+              </a>
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="rounded-[28px] border border-brand-dark/10 bg-brand-mist p-5">
+              <p className="text-xs font-black uppercase tracking-[0.28em] text-slate-500">Lottery draws</p>
+              <p className="mt-3 text-4xl font-black text-brand-plum">{lotteryRaffles.length}</p>
+            </div>
+            <div className="rounded-[28px] border border-brand-dark/10 bg-brand-mist p-5">
+              <p className="text-xs font-black uppercase tracking-[0.28em] text-slate-500">Prize competitions</p>
+              <p className="mt-3 text-4xl font-black text-brand-plum">{competitionRaffles.length}</p>
+            </div>
+            <div className="rounded-[28px] border border-brand-dark/10 bg-brand-plum p-5 text-white">
+              <p className="text-xs font-black uppercase tracking-[0.28em] text-brand-yellow">Entry range</p>
+              <p className="mt-3 text-lg font-bold">50p to £1 per ticket — all proceeds to the charity.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="space-y-6">
+        {/* Tab bar */}
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.32em] text-brand-green">Live Draws</p>
+            <h2 className="mt-3 text-3xl font-black tracking-tight text-brand-plum sm:text-4xl">
+              {activeTab === 'LOTTERY' ? 'Lottery Draws' : 'Prize Competitions'}
+            </h2>
+          </div>
+
+          <div className="inline-flex rounded-full border border-brand-dark/10 bg-brand-mist p-1">
+            <button
+              type="button"
+              onClick={() => setActiveTab('LOTTERY')}
+              className={`rounded-full px-6 py-2 text-sm font-bold transition ${
+                activeTab === 'LOTTERY'
+                  ? 'bg-brand-plum text-white shadow'
+                  : 'text-slate-600 hover:text-brand-plum'
+              }`}
+            >
+              Lottery Draws
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('COMPETITION')}
+              className={`rounded-full px-6 py-2 text-sm font-bold transition ${
+                activeTab === 'COMPETITION'
+                  ? 'bg-brand-green text-white shadow'
+                  : 'text-slate-600 hover:text-brand-green'
+              }`}
+            >
+              Prize Competitions
+            </button>
+          </div>
         </div>
 
-        {/* Filter Tabs */}
-        <div className="bg-gray-100 p-1 rounded-lg flex text-sm font-medium">
-          <button
-            onClick={() => setFilter('ALL')}
-            className={`px-4 py-2 rounded-md transition-all ${filter === 'ALL' ? 'bg-white shadow text-brand-purple' : 'text-gray-500 hover:text-gray-700'}`}
-          >
-            All
-          </button>
-          <button
-            onClick={() => setFilter(RaffleType.LOTTERY_RAFFLE)}
-            className={`px-4 py-2 rounded-md transition-all ${filter === RaffleType.LOTTERY_RAFFLE ? 'bg-white shadow text-brand-purple' : 'text-gray-500 hover:text-gray-700'}`}
-          >
-            Lottery Raffles
-          </button>
-          <button
-            onClick={() => setFilter(RaffleType.PRIZE_COMPETITION)}
-            className={`px-4 py-2 rounded-md transition-all ${filter === RaffleType.PRIZE_COMPETITION ? 'bg-white shadow text-brand-purple' : 'text-gray-500 hover:text-gray-700'}`}
-          >
-            Prize Competitions
-          </button>
+        {/* Tab description */}
+        <div className="rounded-[20px] border border-brand-dark/10 bg-brand-mist px-5 py-4 text-sm text-slate-600">
+          {activeTab === 'LOTTERY' ? (
+            <p>
+              <span className="font-bold text-brand-plum">Lottery draws</span> — registered with Birmingham City Council (Ref: 213653). Each ticket enters a random draw with no skill element required. All ticket purchases support Mindful Gaming UK; entries are not donations and are not Gift Aid eligible.
+            </p>
+          ) : (
+            <p>
+              <span className="font-bold text-brand-green">Prize competitions</span> — require a correct answer to a skill question before payment proceeds. Competitions are not lottery-regulated. Entry fees support Mindful Gaming UK; entries are not donations and are not Gift Aid eligible.
+            </p>
+          )}
         </div>
+
+        {/* Draw grid */}
+        {visibleRaffles.length === 0 ? (
+          <div className="rounded-[28px] border border-dashed border-brand-dark/10 bg-white/90 px-6 py-16 text-center">
+            <p className="text-lg font-bold text-brand-plum">
+              {activeTab === 'LOTTERY'
+                ? 'No lottery draws are live right now.'
+                : 'No prize competitions are live right now.'}
+            </p>
+            <p className="mt-3 text-sm text-slate-600">
+              Check the Prize Vault below to see what is coming next, or support the charity directly through the donation form.
+            </p>
+          </div>
+        ) : (
+          <div className="grid gap-6 lg:grid-cols-2 xl:grid-cols-3">
+            {visibleRaffles.map((raffle) => (
+              <DrawCard key={raffle._id} raffle={raffle} />
+            ))}
+          </div>
+        )}
+      </section>
+
+      <div className="rounded-[36px] border border-brand-dark/10 bg-white/80 px-5 py-8 shadow-[0_20px_80px_rgba(40,26,57,0.08)] sm:px-8" id="local-vault">
+        <PrizeVault description="Every card below is part of the upcoming prize queue. Prizes go live in either the Lottery Draws or Prize Competitions tab once they are ready." />
       </div>
-
-      {filteredRaffles.length === 0 ? (
-        <div className="text-center py-20 bg-gray-50 rounded-xl border border-dashed border-gray-300">
-          <p className="text-gray-500">No active draws found for this category.</p>
-        </div>
-      ) : (
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {filteredRaffles.map(raffle => {
-            const theme = getTheme(raffle.theme);
-
-            return (
-              <Link key={raffle._id} to={`/draw/${raffle.slug}`} className="bg-white border border-gray-200 rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden flex flex-col h-full group">
-                <div className="h-56 relative overflow-hidden">
-                  <img src={raffle.heroImageUrl || getAsset(raffle.assetKey)} alt={raffle.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                  <div className={`absolute top-4 right-4 bg-white/95 backdrop-blur px-3 py-1.5 rounded-full text-sm font-bold shadow-sm ${theme.primary}`}>
-                    {formatCurrency(raffle.ticketPrice)}
-                  </div>
-                  <div className={`absolute top-4 left-4 px-3 py-1.5 rounded-full text-[10px] font-extrabold shadow-sm uppercase tracking-widest ${raffle.drawType === RaffleType.PRIZE_COMPETITION ? 'bg-brand-teal text-white' : 'bg-brand-purple text-white'}`}>
-                    {raffle.drawType === RaffleType.PRIZE_COMPETITION ? 'Competition' : 'Lottery'}
-                  </div>
-                </div>
-                <div className="p-6 flex-grow flex flex-col">
-                  <h3 className="font-bold text-lg text-gray-900 mb-2 line-clamp-2 group-hover:text-brand-purple transition-colors">{raffle.title}</h3>
-                  <p className="text-sm text-gray-500 mb-6 line-clamp-2">{raffle.description}</p>
-
-                  <div className="mt-auto pt-4 border-t border-gray-100">
-                    <div className="flex justify-between text-xs font-medium text-gray-500 mb-2">
-                      <span>{raffle.soldTickets} sold</span>
-                      <span>{raffle.maxTickets} max</span>
-                    </div>
-                    <div className="w-full bg-gray-100 rounded-full h-2 mb-4 overflow-hidden">
-                      <div className={`h-2 rounded-full transition-all duration-1000 ease-out ${theme.progressFill}`} style={{ width: `${calculateProgress(raffle.soldTickets, raffle.maxTickets)}%` }}></div>
-                    </div>
-                    <div className={`text-center font-bold text-white py-3 rounded-xl transition-colors ${theme.button}`}>
-                      Enter Draw
-                    </div>
-                  </div>
-                </div>
-              </Link>
-            );
-          })}
-        </div>
-      )}
     </div>
   );
 };
