@@ -10,6 +10,7 @@ import { Transparency } from './pages/Transparency';
 import { MyEntries } from './pages/MyEntries';
 import { EntryStatus } from './pages/EntryStatus';
 import { Support } from './pages/Support';
+import { Winners } from './pages/Winners';
 
 const App: React.FC = () => {
   return (
@@ -26,6 +27,7 @@ const App: React.FC = () => {
             <Route path="/transparency" element={<Transparency />} />
             <Route path="/support" element={<Support />} />
             <Route path="/my-entries" element={<MyEntries />} />
+            <Route path="/winners" element={<Winners />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Layout>

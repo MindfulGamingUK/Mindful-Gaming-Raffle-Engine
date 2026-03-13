@@ -16,20 +16,16 @@ export const Landing: React.FC = () => {
   const config = getConfig();
 
   useEffect(() => {
-    Promise.all([
-      fetchActiveRaffles(),
-      fetchAwarenessFeed(3, 0)
-    ])
-      .then(([raffleData, awarenessData]) => {
-        setRaffles(raffleData);
-        setAwareness(awarenessData.items);
-      })
-      .catch((error) => {
-        console.error('Failed to load landing data', error);
-      })
-      .finally(() => {
-        setLoading(false);
-      });
+    // Raffle data is critical — load independently so an awareness failure never hides live draws
+    fetchActiveRaffles()
+      .then(setRaffles)
+      .catch((error) => console.error('Failed to load raffles', error))
+      .finally(() => setLoading(false));
+
+    // Awareness feed is non-critical — failure is silent
+    fetchAwarenessFeed(3, 0)
+      .then((data) => setAwareness(data.items))
+      .catch(() => { /* non-critical, show no awareness cards */ });
   }, []);
 
   const activeRaffles = useMemo(

@@ -172,7 +172,7 @@ export const RaffleDetail: React.FC = () => {
               alt={raffle.imageAlt || raffle.title}
               onError={(event) => {
                 event.currentTarget.onerror = null;
-                event.currentTarget.src = '/assets/prizes/placeholder.svg';
+                event.currentTarget.src = `${import.meta.env.BASE_URL}assets/prizes/placeholder.svg`;
               }}
               className={`w-full h-80 lg:h-96 ${usesContainFit ? 'object-contain p-8' : 'object-cover'}`}
             />
@@ -194,7 +194,7 @@ export const RaffleDetail: React.FC = () => {
                   src={formatWixMediaUrl(raffle.heroImageUrl || getAsset(raffle.assetKey), 200, 200)}
                   onError={(event) => {
                     event.currentTarget.onerror = null;
-                    event.currentTarget.src = '/assets/prizes/placeholder.svg';
+                    event.currentTarget.src = `${import.meta.env.BASE_URL}assets/prizes/placeholder.svg`;
                   }}
                   className={`w-full h-full ${usesContainFit ? 'object-contain bg-brand-mist p-2' : 'object-cover'}`}
                   alt="Main"
@@ -210,7 +210,7 @@ export const RaffleDetail: React.FC = () => {
                     src={formatWixMediaUrl(url, 200, 200)}
                     onError={(event) => {
                       event.currentTarget.onerror = null;
-                      event.currentTarget.src = '/assets/prizes/placeholder.svg';
+                      event.currentTarget.src = `${import.meta.env.BASE_URL}assets/prizes/placeholder.svg`;
                     }}
                     className={`w-full h-full ${usesContainFit ? 'object-contain bg-brand-mist p-2' : 'object-cover'}`}
                     alt={`Gallery ${i + 1}`}

@@ -36,7 +36,8 @@ function getCorsHeaders(request) {
         ...HEADERS,
         'Access-Control-Allow-Origin': ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0],
         'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, x-mock-role, x-service-key, Authorization, stripe-signature'
+        'Access-Control-Allow-Headers': 'Content-Type, x-mock-role, x-service-key, Authorization, stripe-signature',
+        'Access-Control-Allow-Credentials': 'true'
     };
 }
 
@@ -161,11 +162,15 @@ export function options_myEntries(request) { return response(ok, {}, request); }
 export function options_surveyResponse(request) { return response(ok, {}, request); }
 export function options_competitionQuestion(request) { return response(ok, {}, request); }
 export function options_awarenessEvent(request) { return response(ok, {}, request); }
+export function options_awarenessFeed(request) { return response(ok, {}, request); }
+export function options_awarenessRandom(request) { return response(ok, {}, request); }
+export function options_admin_cleanup(request) { return response(ok, {}, request); }
 export function options_admin_retryMint(request) { return response(ok, {}, request); }
 export function options_getInstagramAuthUrl(request) { return response(ok, {}, request); }
 export function options_authWithInstagram(request) { return response(ok, {}, request); }
 export function options_stripeWebhook(request) { return response(ok, {}, request); }
 export function options_paypalWebhook(request) { return response(ok, {}, request); }
+export function options_winners(request) { return response(ok, {}, request); }
 
 async function getMemberFromRequest(request) {
     // SECURITY: In Prod, we use Wix Members Identity
@@ -208,21 +213,26 @@ async function getProfile(memberId) {
 // --- PUBLIC ENDPOINTS ---
 
 export async function get_session(request) {
-    const user = await getMemberFromRequest(request); // FIX: getMemberFromRequest is async
-    let profile = null;
+    try {
+        const user = await getMemberFromRequest(request);
+        let profile = null;
 
-    if (user.loggedIn) {
-        profile = await getProfile(user.id);
+        if (user.loggedIn) {
+            profile = await getProfile(user.id);
+        }
+
+        return response(ok, {
+            loggedIn: user.loggedIn,
+            memberId: user.loggedIn ? user.id : null,
+            email: user.email,
+            profileSupplement: profile,
+            isEligible: profile?.residencyConfirmed && isOver18(profile?.dob),
+            isProfileComplete: !!(profile?.dob && profile?.residencyConfirmed)
+        }, request);
+    } catch (error) {
+        // Never 500 on session — return a safe logged-out state
+        return response(ok, { loggedIn: false, memberId: null, email: null, profileSupplement: null, isEligible: false, isProfileComplete: false }, request);
     }
-
-    return response(ok, {
-        loggedIn: user.loggedIn,
-        memberId: user.loggedIn ? user.id : null,
-        email: user.email,
-        profileSupplement: profile,
-        isEligible: profile?.residencyConfirmed && isOver18(profile?.dob),
-        isProfileComplete: !!(profile?.dob && profile?.residencyConfirmed)
-    }, request);
 }
 
 export async function get_rafflesActive(request) {
@@ -342,7 +352,28 @@ export async function post_createEntryIntent(request) {
             return response(badRequest, { error: "Raffle closed" }, request);
         }
 
-        // 4. Handle Skill Question (PRIZE_COMPETITION only)
+        // 4. Enforce cumulative per-member ticket limit
+        const memberLimit = raffle.maxTicketsPerMember || 20;
+        const [confirmedEntries, pendingIntents] = await Promise.all([
+            wixData.query(COLLECTIONS.ENTRIES)
+                .eq('raffleId', raffleId).eq('memberId', user.id)
+                .find({ suppressAuth: true }),
+            wixData.query(COLLECTIONS.INTENTS)
+                .eq('raffleId', raffleId).eq('memberId', user.id).eq('status', 'INITIATED')
+                .find({ suppressAuth: true })
+        ]);
+        const confirmedCount = confirmedEntries.items.reduce((sum, e) => sum + (e.ticketCount || 0), 0);
+        const pendingCount = pendingIntents.items.reduce((sum, i) => sum + (i.quantity || 0), 0);
+        if (confirmedCount + pendingCount + quantity > memberLimit) {
+            return response(badRequest, {
+                error: `Exceeds per-member limit of ${memberLimit} tickets per draw`,
+                currentTotal: confirmedCount + pendingCount,
+                requested: quantity,
+                limit: memberLimit
+            }, request);
+        }
+
+        // 5. Handle Skill Question (PRIZE_COMPETITION only)
         if (raffle.drawType === 'PRIZE_COMPETITION') {
             if (skillAnswerIndex === undefined || skillAnswerIndex !== raffle.skillQuestion.correctAnswerIndex) {
                 return response(badRequest, { error: "Incorrect or missing answer to skill question" }, request);
@@ -833,7 +864,7 @@ export async function post_awarenessEvent(request) {
 export async function post_admin_retryMint(request) {
     try {
         const secret = await wixSecretsBackend.getSecret('ADMIN_SECRET');
-        if (request.headers['Authorization'] !== `Bearer ${secret}`) return response(forbidden, { error: "Unauthorized" }, request);
+        if (!timingSafeEqualHex(request.headers['Authorization'] || '', `Bearer ${secret}`)) return response(forbidden, { error: "Unauthorized" }, request);
 
         const { providerEventId } = await request.body.json();
         const ledger = await wixData.get(COLLECTIONS.PAYMENTS, `ledger_${providerEventId}`, { suppressAuth: true });
@@ -860,7 +891,7 @@ export function options_admin_exportReturn(request) { return response(ok, {}, re
 export async function post_admin_executeDraw(request) {
     try {
         const secret = await wixSecretsBackend.getSecret('ADMIN_SECRET');
-        if (request.headers['Authorization'] !== `Bearer ${secret}`) return response(forbidden, { error: "Unauthorized" }, request);
+        if (!timingSafeEqualHex(request.headers['Authorization'] || '', `Bearer ${secret}`)) return response(forbidden, { error: "Unauthorized" }, request);
 
         const { raffleId } = await request.body.json();
         if (!raffleId) return response(badRequest, { error: "Missing raffleId" }, request);
@@ -876,7 +907,7 @@ export async function post_admin_executeDraw(request) {
 export async function post_admin_exportReturn(request) {
     try {
         const secret = await wixSecretsBackend.getSecret('ADMIN_SECRET');
-        if (request.headers['Authorization'] !== `Bearer ${secret}`) return response(forbidden, { error: "Unauthorized" }, request);
+        if (!timingSafeEqualHex(request.headers['Authorization'] || '', `Bearer ${secret}`)) return response(forbidden, { error: "Unauthorized" }, request);
 
         const { raffleId } = await request.body.json();
         if (!raffleId) return response(badRequest, { error: "Missing raffleId" }, request);
@@ -892,7 +923,7 @@ export async function post_admin_exportReturn(request) {
 export async function post_admin_cleanup(request) {
     try {
         const secret = await wixSecretsBackend.getSecret('ADMIN_SECRET');
-        if (request.headers['Authorization'] !== `Bearer ${secret}`) return response(forbidden, { error: "Unauthorized" }, request);
+        if (!timingSafeEqualHex(request.headers['Authorization'] || '', `Bearer ${secret}`)) return response(forbidden, { error: "Unauthorized" }, request);
 
         const now = new Date();
         const retentionDays = 30; // Configurable
@@ -922,6 +953,30 @@ export async function post_admin_cleanup(request) {
         return response(ok, { cleanedIntents: oldIntents.items.length, cleanedAudits: oldAudits.items.length }, request);
     } catch (e) {
         return response(serverError, { error: e.message }, request);
+    }
+}
+
+export async function get_winners(request) {
+    try {
+        const results = await wixData.query(COLLECTIONS.WINNERS)
+            .eq('published', true)
+            .descending('drawDate')
+            .limit(50)
+            .find({ suppressAuth: true });
+
+        const winners = results.items.map(w => ({
+            _id: w._id,
+            drawType: w.drawType,
+            raffleTitle: w.raffleTitle,
+            drawDate: w.drawDate,
+            winningTicketDisplay: w.winningTicketDisplay,
+            winnerPublicLabel: w.winnerPublicLabel || null,
+            status: w.status
+        }));
+
+        return response(ok, winners, request);
+    } catch (error) {
+        return response(serverError, { error: error.message }, request);
     }
 }
 

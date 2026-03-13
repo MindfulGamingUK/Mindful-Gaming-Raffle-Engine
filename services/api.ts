@@ -430,10 +430,12 @@ class VeloRaffleApi implements IRaffleApi {
   }
 
   private async request<T>(endpoint: string, method: string = 'GET', body?: any): Promise<T> {
-    const headers: any = { 'Content-Type': 'application/json' };
+    // Only send Content-Type on requests with a body — GET with Content-Type triggers CORS preflight unnecessarily
+    const headers: Record<string, string> = body ? { 'Content-Type': 'application/json' } : {};
     const response = await fetch(`${this.baseUrl}${endpoint}`, {
       method,
       headers,
+      credentials: 'include',
       body: body ? JSON.stringify(body) : undefined
     });
 
@@ -445,10 +447,12 @@ class VeloRaffleApi implements IRaffleApi {
 
   async login() {
     const session = await this.getSession();
-    if (!session) {
-      throw new Error('No active Wix member session was found.');
-    }
-    return session;
+    if (session) return session;
+    // Redirect the top-level Wix page to the Wix member login, returning here after
+    const returnUrl = encodeURIComponent(window.location.href);
+    const loginUrl = `https://www.mindfulgaminguk.org/login?redirectUrl=${returnUrl}`;
+    (window.top ?? window).location.href = loginUrl;
+    return null;
   }
   async logout() { }
   async getSession() {
