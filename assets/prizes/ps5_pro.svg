@@ -1,0 +1,40 @@
+<svg width="800" height="500" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#00439c"/>
+      <stop offset="100%" style="stop-color:#001f5b"/>
+    </linearGradient>
+    <linearGradient id="glow" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:0.15"/>
+      <stop offset="100%" style="stop-color:#ffffff;stop-opacity:0"/>
+    </linearGradient>
+  </defs>
+  <!-- Background -->
+  <rect width="800" height="500" fill="url(#bg)"/>
+  <rect width="800" height="500" fill="url(#glow)"/>
+  <!-- Abstract circuit lines -->
+  <line x1="0" y1="120" x2="800" y2="120" stroke="#ffffff" stroke-width="0.5" opacity="0.08"/>
+  <line x1="0" y1="380" x2="800" y2="380" stroke="#ffffff" stroke-width="0.5" opacity="0.08"/>
+  <line x1="200" y1="0" x2="200" y2="500" stroke="#ffffff" stroke-width="0.5" opacity="0.08"/>
+  <line x1="600" y1="0" x2="600" y2="500" stroke="#ffffff" stroke-width="0.5" opacity="0.08"/>
+  <!-- PS5 Pro body silhouette -->
+  <rect x="290" y="130" width="220" height="280" rx="30" fill="#e8e8f0" opacity="0.95"/>
+  <rect x="310" y="145" width="180" height="250" rx="22" fill="#f4f4f8"/>
+  <!-- PS5 Pro disc slot -->
+  <rect x="290" y="220" width="220" height="8" rx="4" fill="#b8b8d0" opacity="0.7"/>
+  <!-- PlayStation logo disc -->
+  <circle cx="400" cy="195" r="22" fill="#003087" opacity="0.9"/>
+  <text x="400" y="201" font-family="Arial Black,sans-serif" font-size="20" font-weight="900" fill="white" text-anchor="middle">PS</text>
+  <!-- Power button -->
+  <circle cx="400" cy="355" r="10" fill="#ccccdd" opacity="0.8"/>
+  <circle cx="400" cy="355" r="6" fill="#003087" opacity="0.6"/>
+  <!-- USB ports -->
+  <rect x="368" y="370" width="18" height="10" rx="2" fill="#c0c0d0" opacity="0.7"/>
+  <rect x="414" y="370" width="18" height="10" rx="2" fill="#c0c0d0" opacity="0.7"/>
+  <!-- Brand text -->
+  <text x="400" y="70" font-family="Arial Black,sans-serif" font-size="44" font-weight="900" fill="white" text-anchor="middle" letter-spacing="2">PS5 PRO</text>
+  <text x="400" y="98" font-family="Arial,sans-serif" font-size="16" fill="#7eb8ff" text-anchor="middle" letter-spacing="4">CONSOLE</text>
+  <!-- Value badge -->
+  <rect x="298" y="450" width="204" height="34" rx="17" fill="#003087" stroke="#4a9eff" stroke-width="1.5"/>
+  <text x="400" y="472" font-family="Arial Black,sans-serif" font-size="14" fill="white" text-anchor="middle">£779.99 RRP</text>
+</svg>

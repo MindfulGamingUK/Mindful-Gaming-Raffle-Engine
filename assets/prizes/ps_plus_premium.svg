@@ -1,0 +1,41 @@
+<svg width="800" height="500" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#00439c"/>
+      <stop offset="100%" style="stop-color:#00206b"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="40%" r="55%">
+      <stop offset="0%" style="stop-color:#4a9eff;stop-opacity:0.35"/>
+      <stop offset="100%" style="stop-color:#4a9eff;stop-opacity:0"/>
+    </radialGradient>
+  </defs>
+  <!-- Background -->
+  <rect width="800" height="500" fill="url(#bg)"/>
+  <ellipse cx="400" cy="220" rx="300" ry="240" fill="url(#glow)"/>
+  <!-- PS Plus card design -->
+  <rect x="220" y="130" width="360" height="220" rx="16" fill="#0050c8" stroke="#4a90e2" stroke-width="1.5"/>
+  <rect x="220" y="130" width="360" height="220" rx="16" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+  <!-- Top stripe -->
+  <rect x="220" y="130" width="360" height="50" rx="16" fill="#003087"/>
+  <rect x="220" y="160" width="360" height="20" fill="#003087"/>
+  <!-- PS logo -->
+  <text x="260" y="168" font-family="Arial Black,sans-serif" font-size="28" font-weight="900" fill="white" letter-spacing="1">PS</text>
+  <!-- Plus sign -->
+  <rect x="300" y="150" width="4" height="20" rx="2" fill="rgba(255,255,255,0.5)"/>
+  <rect x="293" y="157" width="18" height="4" rx="2" fill="rgba(255,255,255,0.5)"/>
+  <!-- PLUS in gold -->
+  <text x="400" y="202" font-family="Arial Black,sans-serif" font-size="52" font-weight="900" fill="#ffd700" text-anchor="middle" letter-spacing="4">PLUS</text>
+  <!-- PREMIUM below -->
+  <text x="400" y="235" font-family="Arial Black,sans-serif" font-size="20" font-weight="900" fill="white" text-anchor="middle" letter-spacing="6">PREMIUM</text>
+  <!-- 12 months badge -->
+  <rect x="310" y="252" width="180" height="36" rx="18" fill="#ffd700"/>
+  <text x="400" y="275" font-family="Arial Black,sans-serif" font-size="14" font-weight="900" fill="#003087" text-anchor="middle">12-MONTH MEMBERSHIP</text>
+  <!-- Features -->
+  <text x="400" y="390" font-family="Arial,sans-serif" font-size="13" fill="rgba(255,255,255,0.75)" text-anchor="middle">700+ games · PS1/PS2/PS3 classics · Cloud streaming</text>
+  <!-- Title -->
+  <text x="400" y="66" font-family="Arial Black,sans-serif" font-size="36" font-weight="900" fill="white" text-anchor="middle" letter-spacing="1">PS PLUS PREMIUM</text>
+  <text x="400" y="92" font-family="Arial,sans-serif" font-size="13" fill="#7eb8ff" text-anchor="middle" letter-spacing="4">12-MONTH DIGITAL CODE</text>
+  <!-- Value badge -->
+  <rect x="300" y="425" width="200" height="34" rx="17" fill="rgba(0,0,0,0.4)" stroke="#4a9eff" stroke-width="1.5"/>
+  <text x="400" y="447" font-family="Arial Black,sans-serif" font-size="14" fill="white" text-anchor="middle">£99.99 RRP</text>
+</svg>

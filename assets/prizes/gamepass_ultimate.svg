@@ -1,0 +1,50 @@
+<svg width="800" height="500" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#107c10"/>
+      <stop offset="100%" style="stop-color:#052e05"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" style="stop-color:#52b043;stop-opacity:0.4"/>
+      <stop offset="100%" style="stop-color:#52b043;stop-opacity:0"/>
+    </radialGradient>
+  </defs>
+  <!-- Background -->
+  <rect width="800" height="500" fill="url(#bg)"/>
+  <ellipse cx="400" cy="250" rx="300" ry="220" fill="url(#glow)"/>
+  <!-- Xbox controller silhouette -->
+  <!-- Controller body -->
+  <ellipse cx="400" cy="265" rx="110" ry="85" fill="#1a1a1a" opacity="0.9"/>
+  <ellipse cx="340" cy="220" rx="55" ry="65" fill="#1a1a1a" opacity="0.9"/>
+  <ellipse cx="460" cy="220" rx="55" ry="65" fill="#1a1a1a" opacity="0.9"/>
+  <!-- Xbox button (centre) -->
+  <circle cx="400" cy="248" r="20" fill="#107c10"/>
+  <!-- Xbox X logo -->
+  <text x="400" y="256" font-family="Arial Black,sans-serif" font-size="18" font-weight="900" fill="white" text-anchor="middle">X</text>
+  <!-- Left thumbstick -->
+  <circle cx="358" cy="265" r="15" fill="#333333"/>
+  <circle cx="358" cy="265" r="9" fill="#222222"/>
+  <!-- Right thumbstick -->
+  <circle cx="430" cy="285" r="15" fill="#333333"/>
+  <circle cx="430" cy="285" r="9" fill="#222222"/>
+  <!-- ABXY buttons -->
+  <circle cx="450" cy="230" r="9" fill="#52b043"/><!-- A green -->
+  <circle cx="468" cy="215" r="9" fill="#e87722"/><!-- B orange -->
+  <circle cx="432" cy="215" r="9" fill="#4fc3f7"/><!-- X blue -->
+  <circle cx="450" cy="200" r="9" fill="#e8d44d"/><!-- Y yellow -->
+  <!-- D-pad -->
+  <rect x="335" y="279" width="9" height="26" rx="3" fill="#333"/>
+  <rect x="326" y="288" width="26" height="9" rx="3" fill="#333"/>
+  <!-- Bumpers -->
+  <rect x="295" y="182" width="70" height="14" rx="7" fill="#222222" opacity="0.9"/>
+  <rect x="435" y="182" width="70" height="14" rx="7" fill="#222222" opacity="0.9"/>
+  <!-- Game Pass logo text -->
+  <text x="400" y="70" font-family="Arial Black,sans-serif" font-size="38" font-weight="900" fill="white" text-anchor="middle" letter-spacing="1">GAME PASS</text>
+  <text x="400" y="104" font-family="Arial Black,sans-serif" font-size="22" font-weight="900" fill="#52b043" text-anchor="middle" letter-spacing="4">ULTIMATE</text>
+  <text x="400" y="126" font-family="Arial,sans-serif" font-size="13" fill="rgba(255,255,255,0.6)" text-anchor="middle" letter-spacing="3">12-MONTH SUBSCRIPTION</text>
+  <!-- Subtitle: 100+ games -->
+  <text x="400" y="390" font-family="Arial,sans-serif" font-size="14" fill="rgba(255,255,255,0.75)" text-anchor="middle">100+ games · EA Play · Cloud Gaming · Xbox Live Gold</text>
+  <!-- Value badge -->
+  <rect x="300" y="420" width="200" height="34" rx="17" fill="rgba(0,0,0,0.5)" stroke="#52b043" stroke-width="1.5"/>
+  <text x="400" y="442" font-family="Arial Black,sans-serif" font-size="14" fill="white" text-anchor="middle">£84.99 RRP</text>
+</svg>
