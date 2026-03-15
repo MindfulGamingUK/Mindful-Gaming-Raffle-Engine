@@ -174,7 +174,7 @@ All 10 collections are created on the live site. Key ones:
 | `AuditLogs` | System audit trail |
 | `MemberSupplements` | Extended member profiles (DOB, residency, self-exclusion) |
 
-**ticketPrice and prizesValue are stored in pence** (integer). `200` = £2.00.
+**ticketPrice and prizesValue are stored in pounds** (decimal). `2.0` = £2.00. Backend multiplies by 100 to get pence for Stripe. Never seed with integer pence values.
 
 ---
 
@@ -246,7 +246,7 @@ App.tsx                  ← HashRouter with all routes including /winners
 ```
 
 **Key patterns:**
-- `ticketPrice` in CMS = pence (integer)
+- `ticketPrice` in CMS = pounds (decimal, e.g. 1.0 = £1.00); backend does `* 100` for Stripe
 - `credentials: 'include'` on all Velo fetch calls (cross-origin session cookies)
 - `Access-Control-Allow-Credentials: true` in all Velo CORS headers
 - Admin endpoints use `timingSafeEqualHex()` — not string equality
