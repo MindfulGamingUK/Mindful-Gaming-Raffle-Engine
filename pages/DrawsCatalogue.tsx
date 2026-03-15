@@ -6,11 +6,11 @@ import { PrizeVault } from '../components/PrizeVault';
 import { getConfig } from '../utils/config';
 import { Button } from '../components/Button';
 
-type DrawTab = 'LOTTERY' | 'COMPETITION';
+type DrawTab = 'ALL' | 'LOTTERY' | 'COMPETITION';
 
 export const DrawsCatalogue: React.FC = () => {
   const [raffles, setRaffles] = useState<Raffle[]>(() => getCachedActiveRaffles());
-  const [activeTab, setActiveTab] = useState<DrawTab>('LOTTERY');
+  const [activeTab, setActiveTab] = useState<DrawTab>('ALL');
   const config = getConfig();
 
   useEffect(() => {
@@ -31,12 +31,17 @@ export const DrawsCatalogue: React.FC = () => {
     [raffles]
   );
 
+  const allLiveRaffles = useMemo(
+    () => raffles.filter((r) => r.status !== RaffleStatus.UPCOMING),
+    [raffles]
+  );
+
   const upcomingRaffles = useMemo(
     () => raffles.filter((r) => r.status === RaffleStatus.UPCOMING),
     [raffles]
   );
 
-  const visibleRaffles = activeTab === 'LOTTERY' ? lotteryRaffles : competitionRaffles;
+  const visibleRaffles = activeTab === 'ALL' ? allLiveRaffles : activeTab === 'LOTTERY' ? lotteryRaffles : competitionRaffles;
 
   return (
     <div className="space-y-14 px-4 py-8 sm:px-6 lg:px-8">
@@ -81,45 +86,56 @@ export const DrawsCatalogue: React.FC = () => {
           <div>
             <p className="text-xs font-black uppercase tracking-[0.32em] text-brand-green">Live Draws</p>
             <h2 className="mt-3 text-3xl font-black tracking-tight text-brand-plum sm:text-4xl">
-              {activeTab === 'LOTTERY' ? 'Lottery Draws' : 'Prize Competitions'}
+              {activeTab === 'ALL' ? 'All Live Draws' : activeTab === 'LOTTERY' ? 'Lottery Draws' : 'Prize Competitions'}
             </h2>
           </div>
 
           <div className="inline-flex rounded-full border border-brand-dark/10 bg-brand-mist p-1">
             <button
               type="button"
+              onClick={() => setActiveTab('ALL')}
+              className={`rounded-full px-5 py-2 text-sm font-bold transition ${
+                activeTab === 'ALL'
+                  ? 'bg-brand-plum text-white shadow'
+                  : 'text-slate-600 hover:text-brand-plum'
+              }`}
+            >
+              All ({allLiveRaffles.length})
+            </button>
+            <button
+              type="button"
               onClick={() => setActiveTab('LOTTERY')}
-              className={`rounded-full px-6 py-2 text-sm font-bold transition ${
+              className={`rounded-full px-5 py-2 text-sm font-bold transition ${
                 activeTab === 'LOTTERY'
                   ? 'bg-brand-plum text-white shadow'
                   : 'text-slate-600 hover:text-brand-plum'
               }`}
             >
-              Lottery Draws
+              Lottery ({lotteryRaffles.length})
             </button>
             <button
               type="button"
               onClick={() => setActiveTab('COMPETITION')}
-              className={`rounded-full px-6 py-2 text-sm font-bold transition ${
+              className={`rounded-full px-5 py-2 text-sm font-bold transition ${
                 activeTab === 'COMPETITION'
                   ? 'bg-brand-green text-white shadow'
                   : 'text-slate-600 hover:text-brand-green'
               }`}
             >
-              Prize Competitions
+              Competitions ({competitionRaffles.length})
             </button>
           </div>
         </div>
 
         {/* Tab description */}
         <div className="rounded-[20px] border border-brand-dark/10 bg-brand-mist px-5 py-4 text-sm text-slate-600">
-          {activeTab === 'LOTTERY' ? (
+          {activeTab === 'COMPETITION' ? (
             <p>
-              <span className="font-bold text-brand-plum">Lottery draws</span> — registered with Birmingham City Council (Ref: 213653). Each ticket enters a random draw with no skill element required. All ticket purchases support Mindful Gaming UK; entries are not donations and are not Gift Aid eligible.
+              <span className="font-bold text-brand-green">Prize competitions</span> — require a correct answer to a skill question before payment proceeds. Competitions are not lottery-regulated. Entry fees support Mindful Gaming UK; entries are not donations and are not Gift Aid eligible.
             </p>
           ) : (
             <p>
-              <span className="font-bold text-brand-green">Prize competitions</span> — require a correct answer to a skill question before payment proceeds. Competitions are not lottery-regulated. Entry fees support Mindful Gaming UK; entries are not donations and are not Gift Aid eligible.
+              <span className="font-bold text-brand-plum">Lottery draws</span> are registered with Birmingham City Council (Ref: 213653). <span className="font-bold text-brand-green">Prize competitions</span> require a correct answer before entry. All entry fees support Mindful Gaming UK.
             </p>
           )}
         </div>
@@ -128,7 +144,9 @@ export const DrawsCatalogue: React.FC = () => {
         {visibleRaffles.length === 0 ? (
           <div className="rounded-[28px] border border-dashed border-brand-dark/10 bg-white/90 px-6 py-16 text-center">
             <p className="text-lg font-bold text-brand-plum">
-              {activeTab === 'LOTTERY'
+              {activeTab === 'ALL'
+                ? 'No live draws right now.'
+                : activeTab === 'LOTTERY'
                 ? 'No lottery draws are live right now.'
                 : 'No prize competitions are live right now.'}
             </p>
