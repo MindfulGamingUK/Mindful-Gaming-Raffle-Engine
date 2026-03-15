@@ -479,7 +479,7 @@ class VeloRaffleApi implements IRaffleApi {
     // returnUrl must be the Wix page (not the iframe src) so that after login
     // Wix lands the user back on the raffle engine page.
     const wixReturnUrl = 'https://www.mindfulgaminguk.org/win-to-support';
-    const loginUrl = `https://www.mindfulgaminguk.org/login?redirectUrl=${encodeURIComponent(wixReturnUrl)}`;
+    const loginUrl = `https://www.mindfulgaminguk.org/members/sign-in?redirectUrl=${encodeURIComponent(wixReturnUrl)}`;
     (window.top ?? window).location.href = loginUrl;
     return null as unknown as UserProfile;
   }

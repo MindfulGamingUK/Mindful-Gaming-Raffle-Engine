@@ -143,13 +143,13 @@ export const DrawCard: React.FC<DrawCardProps> = ({ raffle }) => {
         <div className="space-y-3">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-brand-green">{raffle.specs.brand}</p>
+              <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-brand-green">{raffle.specs?.brand}</p>
               <Link to={`/draw/${raffle.slug}`} className="mt-2 block text-2xl font-black leading-tight text-brand-plum transition hover:text-brand-green">
                 {raffle.title}
               </Link>
             </div>
             <div className={`rounded-full border px-3 py-1 text-xs font-bold ${theme.badge}`}>
-              {formatCurrency(raffle.specs.retailValue || raffle.prizesValue)}
+              {formatCurrency(raffle.specs?.retailValue || raffle.prizesValue)}
             </div>
           </div>
           <p className="text-sm leading-6 text-slate-600">{raffle.description}</p>

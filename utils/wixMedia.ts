@@ -3,7 +3,12 @@
  * Handles wix:image:// and wix:vector:// formats.
  */
 export const formatWixMediaUrl = (wixUrl: string, width = 800, height = 600, quality = 85): string => {
-    if (!wixUrl || !wixUrl.startsWith('wix:image://v1/')) {
+    if (!wixUrl) return wixUrl;
+    // Fix old/wrong GitHub Pages base path stored in CMS records
+    if (wixUrl.includes('mindfulgaminguk.github.io/raffle-engine/')) {
+        wixUrl = wixUrl.replace('mindfulgaminguk.github.io/raffle-engine/', 'mindfulgaminguk.github.io/Mindful-Gaming-Raffle-Engine/');
+    }
+    if (!wixUrl.startsWith('wix:image://v1/')) {
         return wixUrl; // Return as-is if not a wix internal URL
     }
 

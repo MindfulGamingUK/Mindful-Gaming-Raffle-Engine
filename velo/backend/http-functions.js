@@ -240,7 +240,9 @@ export async function get_rafflesActive(request) {
         const results = await wixData.query(COLLECTIONS.RAFFLES)
             .eq('status', 'ACTIVE')
             .find({ suppressAuth: true });
-        return response(ok, results.items, request);
+        // Exclude internal test draws from the public catalogue
+        const publicItems = results.items.filter(r => !r.slug?.startsWith('test-'));
+        return response(ok, publicItems, request);
     } catch (error) {
         return response(serverError, { error: error.message }, request);
     }
@@ -474,9 +476,14 @@ export async function post_createGuestEntryIntent(request) {
         // Free entry (£0) — mint directly without Stripe
         if (amountPence === 0) {
             try {
-                await secureMintTickets({ intentId });
+                await secureMintTickets({
+                    provider: 'FREE',
+                    providerEventId: `FREE_${intentId}`,
+                    intentId,
+                    amountPence: 0
+                });
             } catch (mintErr) {
-                console.warn('Free mint failed, status will remain INITIATED:', mintErr.message);
+                console.warn('Free mint failed:', mintErr.message);
             }
             return response(ok, { intentId, status: 'READY', magicToken, paymentUrl: null }, request);
         }
