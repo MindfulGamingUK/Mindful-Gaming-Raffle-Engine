@@ -42,7 +42,7 @@ export const DrawTabs: React.FC<DrawTabsProps> = ({ activeTab, onTabChange, coun
                 onClick={() => onTabChange('SURVEY')}
             />
             <Tab
-                label="Lottery Raffles"
+                label="Prize Draws"
                 icon="🎰"
                 count={counts.lottery}
                 active={activeTab === 'LOTTERY'}

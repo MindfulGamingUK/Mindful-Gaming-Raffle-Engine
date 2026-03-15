@@ -1,0 +1,45 @@
+<svg width="800" height="500" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f5f5f7"/>
+      <stop offset="100%" style="stop-color:#d4d4da"/>
+    </linearGradient>
+    <linearGradient id="lid" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#c8c8d0"/>
+      <stop offset="100%" style="stop-color:#a8a8b8"/>
+    </linearGradient>
+    <linearGradient id="screen" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1c1c1e"/>
+      <stop offset="100%" style="stop-color:#2c2c2e"/>
+    </linearGradient>
+  </defs>
+  <!-- Background -->
+  <rect width="800" height="500" fill="url(#bg)"/>
+  <!-- Laptop lid -->
+  <rect x="170" y="100" width="460" height="280" rx="12" fill="url(#lid)" stroke="#a0a0b0" stroke-width="1.5"/>
+  <!-- Screen bezel -->
+  <rect x="184" y="114" width="432" height="252" rx="8" fill="#1c1c1e"/>
+  <!-- Screen content -->
+  <rect x="190" y="120" width="420" height="240" rx="4" fill="url(#screen)"/>
+  <!-- macOS-style desktop -->
+  <rect x="190" y="120" width="420" height="22" fill="#2c2c2e"/>
+  <circle cx="204" cy="131" r="5" fill="#ff5f57"/>
+  <circle cx="220" cy="131" r="5" fill="#ffbd2e"/>
+  <circle cx="236" cy="131" r="5" fill="#28c840"/>
+  <!-- Apple-style wallpaper suggestion -->
+  <ellipse cx="400" cy="255" rx="120" ry="90" fill="#5856d6" opacity="0.3"/>
+  <ellipse cx="400" cy="255" rx="80" ry="60" fill="#32ade6" opacity="0.25"/>
+  <!-- Apple logo on lid -->
+  <text x="400" y="88" font-family="-apple-system,Arial,sans-serif" font-size="28" fill="#888898" text-anchor="middle">&#x1F34E;</text>
+  <!-- Laptop base -->
+  <rect x="155" y="380" width="490" height="22" rx="4" fill="#b8b8c8" stroke="#a0a0b0" stroke-width="1"/>
+  <rect x="280" y="380" width="240" height="8" rx="4" fill="#a0a0b0"/>
+  <!-- Keyboard hint -->
+  <rect x="170" y="386" width="460" height="14" rx="3" fill="#c8c8d4" opacity="0.6"/>
+  <!-- Title -->
+  <text x="400" y="58" font-family="-apple-system,Arial Black,sans-serif" font-size="36" font-weight="900" fill="#1c1c1e" text-anchor="middle" letter-spacing="1">MacBook Neo 13″</text>
+  <text x="400" y="82" font-family="Arial,sans-serif" font-size="13" fill="#6e6e80" text-anchor="middle" letter-spacing="3">M4 CHIP · 16GB · 512GB SSD</text>
+  <!-- Value -->
+  <rect x="300" y="430" width="200" height="34" rx="17" fill="#1c1c1e" stroke="#3c3c4e" stroke-width="1.5"/>
+  <text x="400" y="452" font-family="Arial Black,sans-serif" font-size="14" fill="white" text-anchor="middle">£1,299.99 RRP</text>
+</svg>

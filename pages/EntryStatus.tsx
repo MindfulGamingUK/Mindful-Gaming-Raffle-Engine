@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { getEntryIntentStatus } from '../services/api';
+import { useParams, useSearchParams, Link } from 'react-router-dom';
+import { getEntryIntentStatus, fetchGuestStatus } from '../services/api';
 import { EntryIntent } from '../types';
 import { Button } from '../components/Button';
 
@@ -8,6 +8,9 @@ const MAX_POLLS = 48; // ~2 minutes at 2.5 s intervals
 
 export const EntryStatus: React.FC = () => {
   const { intentId } = useParams<{ intentId: string }>();
+  const [searchParams] = useSearchParams();
+  const guestToken = searchParams.get('token');
+
   const [status, setStatus] = useState<EntryIntent['status'] | 'TIMEOUT'>('PENDING');
   const [tickets, setTickets] = useState<number[]>([]);
 
@@ -20,8 +23,6 @@ export const EntryStatus: React.FC = () => {
     pollCountRef.current = 0;
 
     const poll = async () => {
-      if (!intentId) return;
-
       pollCountRef.current += 1;
       if (pollCountRef.current > MAX_POLLS) {
         if (isMounted.current) setStatus('TIMEOUT');
@@ -29,7 +30,15 @@ export const EntryStatus: React.FC = () => {
       }
 
       try {
-        const result = await getEntryIntentStatus(intentId);
+        let result: { status: string; ticketNumbers?: number[] };
+
+        if (guestToken) {
+          // Guest flow: poll by magicToken (no login required)
+          result = await fetchGuestStatus(guestToken);
+        } else {
+          if (!intentId) return;
+          result = await getEntryIntentStatus(intentId);
+        }
 
         if (!isMounted.current) return;
 
@@ -55,7 +64,7 @@ export const EntryStatus: React.FC = () => {
       isMounted.current = false;
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [intentId]);
+  }, [intentId, guestToken]);
 
   return (
     <div className="max-w-xl mx-auto px-4 py-20 text-center">

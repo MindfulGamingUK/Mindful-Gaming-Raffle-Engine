@@ -110,7 +110,7 @@ export const SurveyForm: React.FC = () => {
                         onChange={(e) => setForm({ ...form, preferredFormat: e.target.value as any })}
                         className="w-full p-3 rounded-xl border-2 border-gray-100 focus:border-brand-purple focus:ring-4 focus:ring-brand-purple/10 outline-none bg-gray-50 font-medium"
                     >
-                        <option value="LOTTERY">Lottery Raffle (Pure Chance)</option>
+                        <option value="LOTTERY">Lottery Draw (Pure Chance)</option>
                         <option value="COMPETITION">Prize Competition (Skill Question)</option>
                         <option value="BOTH">I like both types</option>
                         <option value="UNSURE">Not sure yet</option>

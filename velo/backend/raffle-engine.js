@@ -40,7 +40,7 @@ function getSecureRandomInt(maxExclusive) {
         throw new Error('Secure RNG range exceeds 32-bit limit');
     }
 
-    const cryptoObj = globalThis.crypto;
+    const cryptoObj = (typeof crypto !== 'undefined' && crypto) || null;
     if (!cryptoObj || typeof cryptoObj.getRandomValues !== 'function') {
         throw new Error('Secure RNG unavailable in runtime');
     }
@@ -127,12 +127,13 @@ export async function secureMintTickets({ provider, providerEventId, intentId, a
     const MAX_RETRIES = 5;
     let attempt = 0;
     let allocationError = null;
+    let raffle = null;
 
     while (attempt < MAX_RETRIES) {
         attempt++;
         try {
             // Re-fetch raffle to get latest ticket info
-            const raffle = await wixData.get(COLLECTIONS.RAFFLES, intent.raffleId, { suppressAuth: true });
+            raffle = await wixData.get(COLLECTIONS.RAFFLES, intent.raffleId, { suppressAuth: true });
 
             // Check availability
             const currentLast = raffle.lastTicketNumber || 0;
@@ -181,14 +182,24 @@ export async function secureMintTickets({ provider, providerEventId, intentId, a
     initialLedgerRecord.status = 'CONFIRMED';
     await wixData.update(COLLECTIONS.LEDGER, initialLedgerRecord, { suppressAuth: true });
 
+    // Skill answer eligibility — for PRIZE_COMPETITION, check answer at mint time.
+    // Incorrect answers create an INELIGIBLE entry so prize can only go to correct answerers.
+    let eligible = true;
+    if (raffle.drawType === 'PRIZE_COMPETITION' && raffle.skillQuestion) {
+        const correctIdx = raffle.skillQuestion.correctAnswerIndex;
+        eligible = (intent.skillAnswerIndex !== undefined && intent.skillAnswerIndex === correctIdx);
+    }
+
     const entry = {
         raffleId: intent.raffleId,
-        memberId: intent.memberId,
+        memberId: intent.memberId || intent.guestId,
+        guestEmail: intent.guestEmail || null,
         ticketNumbers: allocated,
-        ticketCount: allocated.length, // Cached for easy queries
+        ticketCount: allocated.length,
         intentId: intent._id,
         providerTransactionId: providerEventId,
         status: 'CONFIRMED',
+        eligible,
         purchasedAt: new Date()
     };
 
@@ -225,13 +236,20 @@ export async function executeDrawRng(raffleId) {
     if (raffle.status !== 'CLOSED') return { status: "ERROR", message: "Raffle must be CLOSED before draw" };
 
     // Gather all confirmed entries with pagination
-    const entries = await fetchAllQueryItems(
+    const allEntries = await fetchAllQueryItems(
         wixData.query(COLLECTIONS.ENTRIES)
         .eq('raffleId', raffleId)
         .eq('status', 'CONFIRMED')
     );
 
-    if (entries.length === 0) return { status: "ERROR", message: "No confirmed entries" };
+    if (allEntries.length === 0) return { status: "ERROR", message: "No confirmed entries" };
+
+    // For prize competitions, only eligible entries (correct skill answer) are in the draw pool.
+    const entries = raffle.drawType === 'PRIZE_COMPETITION'
+        ? allEntries.filter(e => e.eligible !== false)
+        : allEntries;
+
+    if (entries.length === 0) return { status: "ERROR", message: "No eligible entries — no correct skill answers recorded" };
 
     // Build weighted ranges without flattening all tickets in memory
     const weightedEntries = [];

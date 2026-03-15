@@ -24,6 +24,33 @@ interface SessionEnvelope {
 const ACTIVE_RAFFLES_CACHE_KEY = 'mguk_active_raffles';
 const MOCK_USER_CACHE_KEY = 'mguk_mock_user';
 
+function parseJsonField(value: unknown): any {
+  if (!value) return {};
+  if (typeof value === 'string') {
+    try { return JSON.parse(value); } catch { return {}; }
+  }
+  return value;
+}
+
+// Some CMS records were seeded with pence, others with pounds.
+// Heuristic: ticketPrice integer > 2 is pence; prizesValue > 5000 is pence.
+function fromPenceIfNeeded(value: number, threshold: number): number {
+  if (Number.isFinite(value) && Number.isInteger(value) && value > threshold) {
+    return value / 100;
+  }
+  return value;
+}
+
+function normalizeRaffle(r: any): Raffle {
+  return {
+    ...r,
+    ticketPrice: fromPenceIfNeeded(r.ticketPrice, 2),
+    prizesValue: fromPenceIfNeeded(r.prizesValue, 5000),
+    specs: parseJsonField(r.specs),
+    skillQuestion: r.skillQuestion ? parseJsonField(r.skillQuestion) : undefined,
+  };
+}
+
 const normalizeProfileDate = (value: unknown): string | undefined => {
   if (!value) return undefined;
   if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
@@ -245,7 +272,7 @@ export interface IRaffleApi {
   fetchMyEntries(): Promise<Entry[]>;
   fetchMindfulContent(): Promise<MindfulContent>;
   createEntryIntent(raffleId: string, quantity: number, provider: PaymentProvider, skillAnswerIndex?: number): Promise<PaymentSessionResponse>;
-  createGuestEntryIntent(raffleId: string, quantity: number, provider: PaymentProvider, guestData: { email: string; dob: string; residencyConfirmed: boolean }, skillAnswerIndex?: number): Promise<{ intentId: string; status: string; magicToken: string }>;
+  createGuestEntryIntent(raffleId: string, quantity: number, provider: PaymentProvider, guestData: { email: string; fullName: string; deliveryAddress: string; postcode: string; dob: string; residencyConfirmed: boolean }, skillAnswerIndex?: number): Promise<{ intentId: string; status: string; magicToken: string; paymentUrl: string | null }>;
   fetchGuestStatus(token: string): Promise<{ status: string; ticketNumbers: number[]; raffleId: string; quantity: number }>;
   getEntryIntentStatus(intentId: string): Promise<EntryIntent>;
   fetchAwarenessFeed(limit?: number, skip?: number, tag?: string): Promise<{ items: AwarenessContent[], totalCount: number, hasMore: boolean }>;
@@ -337,8 +364,8 @@ class MockRaffleApi implements IRaffleApi {
     }), 800));
   }
 
-  async createGuestEntryIntent(raffleId: string, quantity: number, provider: PaymentProvider, guestData: any, skillAnswerIndex?: number): Promise<any> {
-    return new Promise(r => setTimeout(() => r({ intentId: "mock_guest_intent", status: "READY", magicToken: "mock_token_123" }), 500));
+  async createGuestEntryIntent(raffleId: string, quantity: number, provider: PaymentProvider, guestData: any, skillAnswerIndex?: number): Promise<{ intentId: string; status: string; magicToken: string; paymentUrl: string | null }> {
+    return new Promise(r => setTimeout(() => r({ intentId: "mock_guest_intent", status: "READY", magicToken: "mock_token_123", paymentUrl: null }), 500));
   }
 
   async fetchGuestStatus(token: string): Promise<any> {
@@ -448,11 +475,13 @@ class VeloRaffleApi implements IRaffleApi {
   async login() {
     const session = await this.getSession();
     if (session) return session;
-    // Redirect the top-level Wix page to the Wix member login, returning here after
-    const returnUrl = encodeURIComponent(window.location.href);
-    const loginUrl = `https://www.mindfulgaminguk.org/login?redirectUrl=${returnUrl}`;
+    // Redirect the TOP-level Wix frame to the members login page.
+    // returnUrl must be the Wix page (not the iframe src) so that after login
+    // Wix lands the user back on the raffle engine page.
+    const wixReturnUrl = 'https://www.mindfulgaminguk.org/win-to-support';
+    const loginUrl = `https://www.mindfulgaminguk.org/login?redirectUrl=${encodeURIComponent(wixReturnUrl)}`;
     (window.top ?? window).location.href = loginUrl;
-    return null;
+    return null as unknown as UserProfile;
   }
   async logout() { }
   async getSession() {
@@ -474,8 +503,8 @@ class VeloRaffleApi implements IRaffleApi {
       ...updated
     }) as UserProfile;
   }
-  async fetchActiveRaffles() { return this.request<Raffle[]>('/rafflesActive'); }
-  async fetchRaffleBySlug(slug: string) { return this.request<Raffle>(`/raffleBySlug?slug=${slug}`); }
+  async fetchActiveRaffles() { return this.request<any[]>('/rafflesActive').then(rs => rs.map(normalizeRaffle)); }
+  async fetchRaffleBySlug(slug: string) { return this.request<any>(`/raffleBySlug?slug=${slug}`).then(normalizeRaffle); }
   async fetchMyEntries() { return this.request<Entry[]>('/myEntries'); }
   async fetchMindfulContent() {
     return { id: 'static', type: 'PAUSE', text: 'Pause for thought...', durationSeconds: 5 } as MindfulContent;
@@ -489,7 +518,7 @@ class VeloRaffleApi implements IRaffleApi {
   }
 
   async createGuestEntryIntent(raffleId: string, quantity: number, provider: PaymentProvider, guestData: any, skillAnswerIndex?: number) {
-    return this.request<{ intentId: string, status: string, magicToken: string }>('/createGuestEntryIntent', 'POST', { raffleId, quantity, provider, guestData, skillAnswerIndex });
+    return this.request<{ intentId: string; status: string; magicToken: string; paymentUrl: string | null }>('/createGuestEntryIntent', 'POST', { raffleId, quantity, provider, guestData, skillAnswerIndex });
   }
 
   async fetchGuestStatus(token: string) {

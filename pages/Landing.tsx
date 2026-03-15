@@ -13,14 +13,21 @@ export const Landing: React.FC = () => {
   const [raffles, setRaffles] = useState<Raffle[]>(cachedRaffles);
   const [awareness, setAwareness] = useState<AwarenessContent[]>([]);
   const [loading, setLoading] = useState(cachedRaffles.length === 0);
+  const [loadError, setLoadError] = useState(false);
   const config = getConfig();
+
+  const loadRaffles = () => {
+    setLoading(true);
+    setLoadError(false);
+    fetchActiveRaffles()
+      .then((data) => { setRaffles(data); setLoadError(false); })
+      .catch((err) => { console.error('Failed to load raffles', err); setLoadError(true); })
+      .finally(() => setLoading(false));
+  };
 
   useEffect(() => {
     // Raffle data is critical — load independently so an awareness failure never hides live draws
-    fetchActiveRaffles()
-      .then(setRaffles)
-      .catch((error) => console.error('Failed to load raffles', error))
-      .finally(() => setLoading(false));
+    loadRaffles();
 
     // Awareness feed is non-critical — failure is silent
     fetchAwarenessFeed(3, 0)
@@ -65,7 +72,7 @@ export const Landing: React.FC = () => {
                 <p className="mt-2 text-3xl font-black text-brand-yellow">{activeRaffles.length}</p>
               </div>
               <div className="rounded-3xl border border-white/10 bg-white/10 p-4">
-                <p className="text-xs font-bold uppercase tracking-[0.28em] text-white/60">Lottery raffles</p>
+                <p className="text-xs font-bold uppercase tracking-[0.28em] text-white/60">Prize draws</p>
                 <p className="mt-2 text-3xl font-black text-brand-yellow">{lotteries.length}</p>
               </div>
               <div className="rounded-3xl border border-white/10 bg-white/10 p-4">
@@ -143,7 +150,7 @@ export const Landing: React.FC = () => {
           <div>
             <p className="text-xs font-black uppercase tracking-[0.32em] text-brand-green">Live Draws</p>
             <h2 className="mt-3 text-3xl font-black tracking-tight text-brand-plum sm:text-4xl">
-              {activeTab === 'LOTTERY' ? 'Lottery Draws' : 'Prize Competitions'}
+              {activeTab === 'LOTTERY' ? 'Prize Draws' : 'Prize Competitions'}
             </h2>
           </div>
           <div className="flex flex-wrap items-center gap-4">
@@ -153,7 +160,7 @@ export const Landing: React.FC = () => {
                 onClick={() => setActiveTab('LOTTERY')}
                 className={`rounded-full px-5 py-2 text-sm font-bold transition ${activeTab === 'LOTTERY' ? 'bg-brand-plum text-white shadow' : 'text-slate-600 hover:text-brand-plum'}`}
               >
-                Lottery Draws
+                Prize Draws
               </button>
               <button
                 type="button"
@@ -173,7 +180,7 @@ export const Landing: React.FC = () => {
         <div className="rounded-[20px] border border-brand-dark/10 bg-brand-mist px-5 py-4 text-sm leading-6 text-slate-600">
           {activeTab === 'LOTTERY' ? (
             <p>
-              <span className="font-bold text-brand-plum">Lottery draws</span> — buy one or more tickets and a verified random draw selects the winner after the close date. No skill required. A short optional wellbeing moment is included before checkout — you can skip it at any time. Registered with Birmingham City Council (Ref: 213653). Entries are not donations and are not Gift Aid eligible.
+              <span className="font-bold text-brand-plum">Prize draws</span> — buy one or more tickets and a verified random draw selects the winner after the close date. No skill required. A short optional wellbeing moment is included before checkout — you can skip it at any time. Registered with Birmingham City Council (Ref: 213653). Entries are not donations and are not Gift Aid eligible.
             </p>
           ) : (
             <p>
@@ -195,11 +202,23 @@ export const Landing: React.FC = () => {
               <DrawCard key={raffle._id} raffle={raffle} />
             ))}
           </div>
+        ) : loadError ? (
+          <div className="rounded-[28px] border border-dashed border-red-200 bg-red-50 px-6 py-14 text-center">
+            <p className="text-lg font-bold text-red-700">Could not load draws right now.</p>
+            <p className="mt-3 text-sm text-slate-600">There may be a temporary connection issue. Please try again.</p>
+            <button
+              type="button"
+              onClick={loadRaffles}
+              className="mt-5 rounded-full bg-brand-plum px-6 py-2 text-sm font-bold text-white hover:bg-brand-plum/80"
+            >
+              Retry
+            </button>
+          </div>
         ) : (
           <div className="rounded-[28px] border border-dashed border-brand-dark/10 bg-white/90 px-6 py-14 text-center">
             <p className="text-lg font-bold text-brand-plum">
               {activeTab === 'LOTTERY'
-                ? 'No lottery draws are live right now.'
+                ? 'No prize draws are live right now.'
                 : 'No prize competitions are live right now.'}
             </p>
             <p className="mt-3 text-sm text-slate-600">

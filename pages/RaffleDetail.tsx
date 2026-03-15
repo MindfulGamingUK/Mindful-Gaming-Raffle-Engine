@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Raffle, PaymentProvider, MindfulContent, RaffleStatus, AwarenessContent } from '../types';
-import { fetchRaffleBySlug, createEntryIntent, fetchMindfulContent } from '../services/api';
+import { fetchRaffleBySlug, createEntryIntent, createGuestEntryIntent, fetchMindfulContent } from '../services/api';
 import { getAsset } from '../utils/assets';
 import { formatCurrency, calculateProgress, isOver18 } from '../utils/formatting';
 import { useAuth } from '../contexts/AuthContext';
@@ -15,7 +15,7 @@ import { RaffleType, CompetitionQuestion } from '../types';
 import { formatWixMediaUrl } from '../utils/wixMedia';
 import { getConfig } from '../utils/config';
 
-type Step = 'OVERVIEW' | 'PROFILE_GATE' | 'MINDFUL' | 'FLASHCARDS' | 'CART' | 'SKILL_QUESTION' | 'PAYMENT';
+type Step = 'OVERVIEW' | 'PROFILE_GATE' | 'GUEST_CHECKOUT' | 'MINDFUL' | 'FLASHCARDS' | 'CART' | 'SKILL_QUESTION' | 'PAYMENT';
 
 export const RaffleDetail: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -35,11 +35,28 @@ export const RaffleDetail: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
 
-  // Gating Form State
+  // Gating Form State (member)
   const [dobInput, setDobInput] = useState('');
   const [residencyChecked, setResidencyChecked] = useState(false);
   const [termsChecked, setTermsChecked] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+
+  // Guest Checkout State
+  const [guestEmail, setGuestEmail] = useState('');
+  const [guestDob, setGuestDob] = useState('');
+  const [guestName, setGuestName] = useState('');
+  const [guestAddress, setGuestAddress] = useState('');
+  const [guestPostcode, setGuestPostcode] = useState('');
+  const [guestResidency, setGuestResidency] = useState(false);
+  const [guestTerms, setGuestTerms] = useState(false);
+  const [guestError, setGuestError] = useState('');
+  const [guestMagicToken, setGuestMagicToken] = useState<string | null>(null);
+
+  // Member delivery address (for PAYMENT step — may differ from billing address)
+  const [memberDeliveryName, setMemberDeliveryName] = useState('');
+  const [memberDeliveryAddress, setMemberDeliveryAddress] = useState('');
+  const [memberDeliveryPostcode, setMemberDeliveryPostcode] = useState('');
+  const [memberAddressError, setMemberAddressError] = useState('');
 
   // Image State
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -88,6 +105,57 @@ export const RaffleDetail: React.FC = () => {
       setStep('PROFILE_GATE');
     }
   };
+
+  // Validate guest form fields, then advance to quantity/payment steps.
+  // Actual intent creation happens at handleGuestPayment when the user confirms payment.
+  const handleGuestSubmit = () => {
+    setGuestError('');
+    if (!guestEmail || !/\S+@\S+\.\S+/.test(guestEmail)) return setGuestError('A valid email address is required.');
+    if (!guestName.trim()) return setGuestError('Full name is required for prize dispatch.');
+    if (!guestAddress.trim()) return setGuestError('Delivery address is required for prize dispatch.');
+    if (!guestPostcode.trim()) return setGuestError('Postcode is required.');
+    if (!guestDob) return setGuestError('Date of birth is required.');
+    if (!isOver18(guestDob)) return setGuestError('You must be 18 or over to enter.');
+    if (!guestResidency) return setGuestError('You must confirm UK residency.');
+    if (!guestTerms) return setGuestError('You must accept the terms to continue.');
+    setStep('CART');
+  };
+
+  const handleGuestPayment = async () => {
+    if (!raffle) return;
+    setSubmitting(true);
+    setPaymentError(null);
+    try {
+      const res = await createGuestEntryIntent(
+        raffle._id,
+        quantity,
+        PaymentProvider.STRIPE,
+        {
+          email: guestEmail,
+          fullName: guestName,
+          deliveryAddress: guestAddress,
+          postcode: guestPostcode,
+          dob: guestDob,
+          residencyConfirmed: true
+        },
+        skillGatePassed ? (selectedSkillAnswer ?? undefined) : undefined
+      );
+      setGuestMagicToken(res.magicToken);
+      if (res.paymentUrl) {
+        // Stripe Checkout — navigate top frame so it works inside Wix iframe
+        (window.top ?? window).location.href = res.paymentUrl;
+      } else {
+        // Free / already-minted — go straight to status page with guest token
+        navigate(`/status/${res.intentId}?token=${res.magicToken}`);
+      }
+    } catch (e: any) {
+      setPaymentError(e.message || 'Could not start checkout. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const isGuestFlow = !user && step !== 'OVERVIEW';
 
   const handleGateSubmit = async () => {
     setErrorMsg('');
@@ -142,9 +210,9 @@ export const RaffleDetail: React.FC = () => {
 
   const handleCompetitionAnswer = () => {
     if (!competitionQuestion || selectedSkillAnswer === null) return;
-
-    const isCorrect = selectedSkillAnswer === competitionQuestion.correctAnswerIndex;
-    setSkillGatePassed(isCorrect);
+    // Answer is recorded but correctness is NOT revealed — disclosed at draw time.
+    // Wrong answers are silently excluded from the draw pool server-side.
+    setSkillGatePassed(true); // always advance; eligibility enforced at mint
     setShowExplanation(true);
   };
 
@@ -178,7 +246,7 @@ export const RaffleDetail: React.FC = () => {
             />
             <div className="absolute top-4 left-4">
               <span className={`px-3 py-1 rounded-full text-xs font-bold shadow-md ${raffle.drawType === RaffleType.LOTTERY_RAFFLE ? 'bg-brand-purple text-white' : 'bg-brand-teal text-white'}`}>
-                {raffle.drawType === RaffleType.PRIZE_COMPETITION ? 'Prize Competition' : 'Lottery Raffle'}
+                {raffle.drawType === RaffleType.PRIZE_COMPETITION ? 'Prize Competition' : 'Prize Draw'}
               </span>
             </div>
           </div>
@@ -236,6 +304,17 @@ export const RaffleDetail: React.FC = () => {
               </div>
             )}
           </div>
+
+          {raffle.cashAlternativeGbp && (
+            <div className="rounded-2xl border border-brand-yellow/40 bg-brand-yellow/10 px-5 py-4 text-sm text-slate-700">
+              <p className="font-bold text-brand-plum">Cash alternative available</p>
+              <p className="mt-2 leading-6">
+                Can't receive a physical prize? If you win, we offer a{' '}
+                <span className="font-bold text-brand-plum">£{raffle.cashAlternativeGbp.toFixed(2)} cash equivalent</span>{' '}
+                as an alternative — contact us after the draw if you'd prefer this option.
+              </p>
+            </div>
+          )}
 
           <TransparencyPanel
             ticketPrice={raffle.ticketPrice}
@@ -302,24 +381,31 @@ export const RaffleDetail: React.FC = () => {
                       </div>
                     </div>
 
+                    <div className="rounded-2xl border border-brand-dark/10 bg-brand-mist/60 p-4 text-xs text-slate-700">
+                      <p className="font-bold text-brand-plum mb-1">Entry requirements</p>
+                      <ul className="list-disc ml-4 space-y-1 opacity-80">
+                        <li>18+ and UK resident</li>
+                        {raffle.drawType === RaffleType.PRIZE_COMPETITION ? (
+                          <li>One skill question must be answered correctly</li>
+                        ) : (
+                          <li>Small Society Lottery — no skill required</li>
+                        )}
+                      </ul>
+                    </div>
+
                     <Button className="w-full py-4 text-lg shadow-lg shadow-brand-green/20" onClick={handleStartEntry}>
                       {user ? 'Enter This Draw' : 'Login to Enter'}
                     </Button>
 
-                    <div className="bg-brand-mist text-slate-700 text-xs p-3 rounded-lg flex gap-2 items-start">
-                      <span className="text-base">ℹ️</span>
-                      <div>
-                        <p className="font-bold">Entry Requirements</p>
-                        <ul className="list-disc ml-4 space-y-1 mt-1 opacity-80">
-                          <li>18+ and GB Resident</li>
-                          {raffle.drawType === RaffleType.PRIZE_COMPETITION ? (
-                            <li>One skill question must be answered correctly</li>
-                          ) : (
-                            <li>Small Society Lottery draw (no skill required)</li>
-                          )}
-                        </ul>
-                      </div>
-                    </div>
+                    {!user && (
+                      <button
+                        type="button"
+                        onClick={() => setStep('GUEST_CHECKOUT')}
+                        className="w-full rounded-xl border border-brand-dark/15 bg-white py-3 text-sm font-semibold text-slate-600 transition hover:border-brand-plum hover:text-brand-plum"
+                      >
+                        Continue as Guest
+                      </button>
+                    )}
                   </div>
                 )}
 
@@ -351,7 +437,89 @@ export const RaffleDetail: React.FC = () => {
                   </div>
                 )}
 
-                {/* 3. MINDFUL MOMENT */}
+                {/* 3. GUEST CHECKOUT */}
+                {step === 'GUEST_CHECKOUT' && (
+                  <div className="animate-fadeIn space-y-4">
+                    <div className="text-center mb-4">
+                      <h3 className="font-bold text-gray-900">Guest Entry</h3>
+                      <p className="text-xs text-gray-500 mt-1">UK residents 18+ only. We'll email your ticket confirmation.</p>
+                    </div>
+                    {guestError && <div className="text-red-600 text-xs bg-red-50 p-2 rounded border border-red-100">{guestError}</div>}
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-xs font-bold text-gray-700 mb-1">Email address</label>
+                        <input
+                          type="email"
+                          value={guestEmail}
+                          onChange={e => setGuestEmail(e.target.value)}
+                          placeholder="your@email.com"
+                          className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-purple text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-gray-700 mb-1 flex items-center gap-1.5">
+                          Full name
+                          <span title="Required to dispatch physical prizes. Digital prizes only need your email." className="cursor-help inline-flex items-center justify-center w-4 h-4 rounded-full bg-brand-plum/10 text-brand-plum text-[10px] font-bold leading-none">i</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={guestName}
+                          onChange={e => setGuestName(e.target.value)}
+                          placeholder="Your full name"
+                          className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-purple text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-gray-700 mb-1 flex items-center gap-1.5">
+                          Delivery address
+                          <span title="Required to dispatch physical prizes to you if you win." className="cursor-help inline-flex items-center justify-center w-4 h-4 rounded-full bg-brand-plum/10 text-brand-plum text-[10px] font-bold leading-none">i</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={guestAddress}
+                          onChange={e => setGuestAddress(e.target.value)}
+                          placeholder="House number, street, city"
+                          className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-purple text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-gray-700 mb-1">Postcode</label>
+                        <input
+                          type="text"
+                          value={guestPostcode}
+                          onChange={e => setGuestPostcode(e.target.value.toUpperCase())}
+                          placeholder="e.g. B73 6UB"
+                          className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-purple text-sm uppercase"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-gray-700 mb-1">Date of birth</label>
+                        <input
+                          type="date"
+                          value={guestDob}
+                          onChange={e => setGuestDob(e.target.value)}
+                          className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-purple"
+                        />
+                      </div>
+                      <label className="flex items-start gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+                        <input type="checkbox" checked={guestResidency} onChange={e => setGuestResidency(e.target.checked)} className="mt-1 w-4 h-4 text-brand-purple rounded" />
+                        <span className="text-xs text-gray-700">I confirm I am a resident of Great Britain and am 18 or over.</span>
+                      </label>
+                      <label className="flex items-start gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+                        <input type="checkbox" checked={guestTerms} onChange={e => setGuestTerms(e.target.checked)} className="mt-1 w-4 h-4 text-brand-purple rounded" />
+                        <span className="text-xs text-gray-700">I accept the lottery terms. Ticket purchases are not charitable donations.</span>
+                      </label>
+                    </div>
+                    <Button className="w-full mt-2" onClick={handleGuestSubmit} isLoading={submitting}>
+                      {raffle.drawType === RaffleType.PRIZE_COMPETITION ? 'Continue to Skill Question' : 'Select Quantity'}
+                    </Button>
+                    <button onClick={() => setStep('OVERVIEW')} className="w-full text-xs text-gray-400 hover:text-gray-600 hover:underline">
+                      Back
+                    </button>
+                  </div>
+                )}
+
+                {/* 4. MINDFUL MOMENT */}
                 {step === 'MINDFUL' && mindfulContent && (
                   <div className="animate-fadeIn">
                     <MindfulMoment content={mindfulContent} onComplete={() => setStep(awarenessContent.length > 0 ? 'FLASHCARDS' : 'CART')} />
@@ -426,29 +594,20 @@ export const RaffleDetail: React.FC = () => {
                           onClick={handleCompetitionAnswer}
                           disabled={selectedSkillAnswer === null}
                         >
-                          Confirm Answer
+                          Submit Answer
                         </Button>
                       </div>
                     ) : (
-                      <div className="p-6 rounded-2xl border-2 animate-fade-in space-y-4 border-gray-100">
-                        <div className={`text-center py-4 rounded-xl font-bold ${skillGatePassed ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
-                          {skillGatePassed ? '✓ Correct Answer!' : '✗ Incorrect Answer'}
-                        </div>
-                        <div className="text-sm text-gray-600 bg-gray-50 p-4 rounded-xl">
-                          <p className="font-bold text-gray-900 mb-1">Did you know?</p>
-                          {competitionQuestion.explanation}
-                          {competitionQuestion.resourceUrl && (
-                            <a href={competitionQuestion.resourceUrl} target="_blank" className="block mt-2 text-brand-purple font-bold hover:underline">Learn more &rarr;</a>
-                          )}
-                        </div>
-                        {skillGatePassed ? (
-                          <Button className="w-full" onClick={() => setStep('PAYMENT')}>Proceed to Payment</Button>
-                        ) : (
-                          <div className="space-y-3">
-                            <p className="text-center text-xs text-red-600 italic">Sorry, a correct answer is required to enter this competition.</p>
-                            <Button variant="secondary" className="w-full" onClick={() => { setShowExplanation(false); setSelectedSkillAnswer(null); }}>Try Again</Button>
-                          </div>
-                        )}
+                      // Blind submit — correctness revealed only at draw time
+                      <div className="p-6 rounded-2xl border border-brand-dark/10 bg-brand-mist/60 space-y-4 text-center">
+                        <div className="text-4xl">🎮</div>
+                        <p className="font-bold text-brand-plum text-lg">Answer submitted!</p>
+                        <p className="text-sm text-slate-600 leading-relaxed">
+                          The correct answer will be revealed live on draw day.
+                          Only entries with the right answer are eligible to win —
+                          good luck!
+                        </p>
+                        <Button className="w-full" onClick={() => setStep('PAYMENT')}>Continue to Payment</Button>
                       </div>
                     )}
                     <button onClick={() => setStep('CART')} className="w-full text-xs text-gray-400 hover:underline">Back</button>
@@ -458,24 +617,66 @@ export const RaffleDetail: React.FC = () => {
                 {/* 7. PAYMENT */}
                 {step === 'PAYMENT' && (
                   <div className="animate-fadeIn space-y-4">
-                    <h3 className="font-bold text-gray-900 mb-2">Select Payment Method</h3>
+                    <h3 className="font-bold text-gray-900 mb-2">Confirm &amp; Pay</h3>
                     {paymentError && (
                       <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 leading-relaxed">
                         {paymentError}
                       </div>
                     )}
+
+                    {/* Member delivery address (guests already filled this in GUEST_CHECKOUT) */}
+                    {!isGuestFlow && (
+                      <div className="rounded-xl border border-brand-dark/10 bg-brand-mist/40 p-4 space-y-3">
+                        <p className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                          Prize delivery address
+                          <span title="Your billing address (from your payment card) may differ from where you want prizes sent. Enter your delivery address here." className="cursor-help inline-flex items-center justify-center w-4 h-4 rounded-full bg-brand-plum/10 text-brand-plum text-[10px] font-bold leading-none">i</span>
+                        </p>
+                        {memberAddressError && <p className="text-xs text-red-600">{memberAddressError}</p>}
+                        <input
+                          type="text"
+                          value={memberDeliveryName}
+                          onChange={e => setMemberDeliveryName(e.target.value)}
+                          placeholder="Full name"
+                          className="w-full p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-purple"
+                        />
+                        <input
+                          type="text"
+                          value={memberDeliveryAddress}
+                          onChange={e => setMemberDeliveryAddress(e.target.value)}
+                          placeholder="House number, street, city"
+                          className="w-full p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-purple"
+                        />
+                        <input
+                          type="text"
+                          value={memberDeliveryPostcode}
+                          onChange={e => setMemberDeliveryPostcode(e.target.value.toUpperCase())}
+                          placeholder="Postcode"
+                          className="w-full p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-purple uppercase"
+                        />
+                        <p className="text-[10px] text-slate-400 leading-relaxed">Digital prizes only need your email — you can leave this blank if you prefer a cash alternative.</p>
+                      </div>
+                    )}
+
                     <div className="bg-yellow-50 border border-yellow-200 p-3 text-[11px] text-yellow-800 rounded-lg flex items-start gap-2 leading-relaxed">
                       <span>⚠️</span>
                       <div>
                         <strong>Legal Notice:</strong> This purchase is an entry into a {raffle.drawType === RaffleType.PRIZE_COMPETITION ? 'Prize Competition' : 'Small Society Lottery'}. It is not a charitable donation and is not Gift Aid eligible.
                       </div>
                     </div>
-                    <button onClick={() => handlePayment(PaymentProvider.STRIPE)} disabled={submitting} className="w-full bg-[#635BFF] text-white py-3.5 rounded-lg font-bold hover:bg-[#534be0] transition flex justify-center items-center gap-2 shadow-sm">
-                      <span>Credit / Debit Card</span>
-                    </button>
-                    <button onClick={() => handlePayment(PaymentProvider.PAYPAL)} disabled={submitting} className="w-full bg-[#FFC439] text-black py-3.5 rounded-lg font-bold hover:brightness-95 transition flex justify-center items-center gap-2 shadow-sm">
-                      <span>PayPal</span>
-                    </button>
+                    {isGuestFlow ? (
+                      <button onClick={handleGuestPayment} disabled={submitting} className="w-full bg-[#635BFF] text-white py-3.5 rounded-lg font-bold hover:bg-[#534be0] transition flex justify-center items-center gap-2 shadow-sm">
+                        <span>{submitting ? 'Processing…' : 'Pay by Card (Guest)'}</span>
+                      </button>
+                    ) : (
+                      <>
+                        <button onClick={() => handlePayment(PaymentProvider.STRIPE)} disabled={submitting} className="w-full bg-[#635BFF] text-white py-3.5 rounded-lg font-bold hover:bg-[#534be0] transition flex justify-center items-center gap-2 shadow-sm">
+                          <span>Credit / Debit Card</span>
+                        </button>
+                        <button onClick={() => handlePayment(PaymentProvider.PAYPAL)} disabled={submitting} className="w-full bg-[#FFC439] text-black py-3.5 rounded-lg font-bold hover:brightness-95 transition flex justify-center items-center gap-2 shadow-sm">
+                          <span>PayPal</span>
+                        </button>
+                      </>
+                    )}
                     <button onClick={() => { setStep('CART'); setPaymentError(null); }} className="w-full text-sm text-gray-500 mt-2 hover:underline">Back to Quantity</button>
                     <a href={config.charityLinks.donationFormUrl} target="_blank" rel="noreferrer" className="block">
                       <Button variant="secondary" className="mt-2 w-full border-brand-plum text-brand-plum hover:bg-brand-plum hover:text-white">

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Raffle, RaffleType } from '../types';
+import { Raffle, RaffleType, RaffleStatus } from '../types';
 import { fetchActiveRaffles, getCachedActiveRaffles } from '../services/api';
 import { DrawCard } from '../components/DrawCard';
 import { PrizeVault } from '../components/PrizeVault';
@@ -22,12 +22,17 @@ export const DrawsCatalogue: React.FC = () => {
   }, []);
 
   const lotteryRaffles = useMemo(
-    () => raffles.filter((r) => r.drawType === RaffleType.LOTTERY_RAFFLE),
+    () => raffles.filter((r) => r.drawType === RaffleType.LOTTERY_RAFFLE && r.status !== RaffleStatus.UPCOMING),
     [raffles]
   );
 
   const competitionRaffles = useMemo(
-    () => raffles.filter((r) => r.drawType === RaffleType.PRIZE_COMPETITION),
+    () => raffles.filter((r) => r.drawType === RaffleType.PRIZE_COMPETITION && r.status !== RaffleStatus.UPCOMING),
+    [raffles]
+  );
+
+  const upcomingRaffles = useMemo(
+    () => raffles.filter((r) => r.status === RaffleStatus.UPCOMING),
     [raffles]
   );
 
@@ -139,6 +144,24 @@ export const DrawsCatalogue: React.FC = () => {
           </div>
         )}
       </section>
+
+      {/* Upcoming draws — vote section */}
+      {upcomingRaffles.length > 0 && (
+        <section className="space-y-6">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.32em] text-slate-500">Coming Next</p>
+            <h2 className="mt-3 text-3xl font-black tracking-tight text-brand-plum sm:text-4xl">What should we draw next?</h2>
+            <p className="mt-3 text-sm text-slate-600 max-w-2xl leading-7">
+              These prizes are in our planning queue. Vote to tell us which ones to prioritise — the most-wanted draws go live first.
+            </p>
+          </div>
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {upcomingRaffles.map((raffle) => (
+              <DrawCard key={raffle._id} raffle={raffle} />
+            ))}
+          </div>
+        </section>
+      )}
 
       <div className="rounded-[36px] border border-brand-dark/10 bg-white/80 px-5 py-8 shadow-[0_20px_80px_rgba(40,26,57,0.08)] sm:px-8" id="local-vault">
         <PrizeVault description="Every card below is part of the upcoming prize queue. Prizes go live in either the Lottery Draws or Prize Competitions tab once they are ready." />

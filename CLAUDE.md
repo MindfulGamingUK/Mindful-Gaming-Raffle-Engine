@@ -10,7 +10,8 @@ Codex and Antigravity agents should read this before starting any task.
 | Field | Value |
 |-------|-------|
 | **Repo** | `c:/Users/zungu/Mindful-Gaming-Raffle-Engine` |
-| **Branch** | `feature/velo-backend` |
+| **GitHub** | `https://github.com/MindfulGamingUK/Mindful-Gaming-Raffle-Engine` |
+| **Branch** | `feature/velo-backend` (main dev branch) |
 | **Stack** | React 19 + Vite + TypeScript → Wix Velo backend |
 | **Wix site** | mindfulgaminguk.org |
 | **Wix site ID** | `0ed288c3-389c-4557-a00a-c2e1c0899efe` |
@@ -22,54 +23,116 @@ Codex and Antigravity agents should read this before starting any task.
 
 ---
 
-## Wix Access — How Each Agent Connects
+## GitHub Pages — Frontend Deploy
 
-### Claude Code (this session)
-Use the **claude.ai Wix MCP tools** — they are always loaded and require no re-auth:
+The SPA is hosted at `https://mindfulgaminguk.github.io/Mindful-Gaming-Raffle-Engine/`
+and embedded in the Wix site via an iframe/custom element.
+
+**Claude Code can build and deploy directly — no manual step needed:**
+
+```bash
+# 1. Build with gh-pages base path
+cd c:/Users/zungu/Mindful-Gaming-Raffle-Engine
+VITE_DEPLOY_TARGET=gh-pages npm run build
+
+# 2. Use a git worktree (no stash/checkout needed — works from any branch)
+git worktree add /tmp/gh-pages-deploy gh-pages
+cd /tmp/gh-pages-deploy
+rm -rf assets favicon.svg index.html
+cp -r "c:/Users/zungu/Mindful-Gaming-Raffle-Engine/dist/." .
+git add -A
+git commit -m "deploy: <description>
+
+Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
+git push origin gh-pages
+
+# 3. Clean up
+cd c:/Users/zungu/Mindful-Gaming-Raffle-Engine
+git worktree remove /tmp/gh-pages-deploy
+```
+
+**Note:** `git stash` approach fails if there are untracked files. Always use the worktree method above.
+
+**GitHub token** is in `~/.claude/mcp.json` under the `github` server entry (`ghp_Qiq...`).
+The `gh` CLI and `git push` both work without manual auth in this environment.
+
+---
+
+## Wix Access — How Each Agent Connects (Updated 2026-03-15)
+
+> **KEY DISCOVERY (2026-03-15):** The IST token works for **CMS writes** when used as a raw
+> `Authorization: IST.eyJ...` header — **NO** "APIKey" or "Bearer" prefix.
+> Using "APIKey IST.eyJ..." returns WDE0117. Using it raw works perfectly.
+
+---
+
+### Method 1 — Direct IST Token (all agents, CMS reads + writes) ✅ CONFIRMED WORKING
+
+```javascript
+// Correct format:
+'Authorization': 'IST.eyJraWQ...'          // raw IST — NO prefix
+
+// Wrong (returns WDE0117):
+'Authorization': 'APIKey IST.eyJraWQ...'
+'Authorization': 'Bearer IST.eyJraWQ...'
+```
+
+**Example (Node.js):**
+```javascript
+const IST = 'IST.eyJraWQiOiJQb3pIX2FDMiIs...'; // from CLAUDE.md or .env.local WIX_API_KEY
+fetch('https://www.wixapis.com/wix-data/v2/items', {
+  method: 'POST',
+  headers: { 'Authorization': IST, 'wix-site-id': '0ed288c3-389c-4557-a00a-c2e1c0899efe', 'Content-Type': 'application/json' },
+  body: JSON.stringify({ dataCollectionId: 'Raffles', dataItem: { data: { ...fields } } })
+});
+```
+
+**For PUT (update):** use `PUT /wix-data/v2/items/{id}` with full data object — PATCH with partial data returns WDE0080 fieldModifications error.
+
+**Reference scripts:**
+- `C:/temp/seed-cms-direct.js` — seeds all 10 subscription + test draws (already run 2026-03-15)
+- `C:/temp/patch-march-draws.js` — patches cashAlternativeGbp on PS5 Pro + MacBook
+
+---
+
+### Method 2 — Claude Code: Wix MCP OAuth (when tools are loaded)
+
+When Wix MCP tools are loaded in the session they appear as:
 ```
 mcp__claude_ai_Wix__CallWixSiteAPI     ← read/write CMS, call any REST endpoint
 mcp__claude_ai_Wix__ListWixSites       ← list sites
 mcp__claude_ai_Wix__ManageWixSite      ← account-level operations
-mcp__claude_ai_Wix__SearchWixRESTDocumentation
-mcp__claude_ai_Wix__BrowseWixRESTDocsMenu
-mcp__claude_ai_Wix__ReadFullDocsArticle
 ```
-Always use `siteId: "0ed288c3-389c-4557-a00a-c2e1c0899efe"` for site-level calls.
+Always pass `siteId: "0ed288c3-389c-4557-a00a-c2e1c0899efe"`.
 
-The `@wix/mcp-remote` server (in `~/.claude/mcp.json`) also connects via OAuth.
-If it needs re-auth: delete `~/.mcp-auth/mcp-remote-0.1.13/*_tokens.json` then run
-`npx @wix/mcp-remote https://mcp.wix.com/sse` — it will open a browser and save a token.
+If the tools are **not available**, the `@wix/mcp-remote` OAuth token has expired — restart Claude Code.
 
-### Codex / Antigravity / other agents (no claude.ai integration)
-Use **direct Wix REST API** with an API key:
+---
+
+### Method 3 — Playwright seeder (fallback)
+
+Use for querying CMS data. **Do not attempt CMS inserts with this key.**
 
 ```
-Authorization: APIKey <WIX_API_KEY>
+Authorization: APIKey IST.eyJraWQiOiJQb3pIX2FDMiIsImFsZyI6IlJTMjU2In0.eyJkYXRhIjoie1wiaWRcIjpcImUyZjQ3YWI2LWZkNTUtNDc3OS1iMTZkLTgwYmMwZDczNDRhYVwiLFwiaWRlbnRpdHlcIjp7XCJ0eXBlXCI6XCJhcHBsaWNhdGlvblwiLFwiaWRcIjpcIjE0MjRjMmFmLWZiMmUtNDQ0ZC1hNDczLTVmOTRjMWY0M2YwOVwifSxcInRlbmFudFwiOntcInR5cGVcIjpcImFjY291bnRcIixcImlkXCI6XCIwM2JjMDk2OS00YTdiLTQwMGYtYTUxYS04OTk2YzBhYjNlZDFcIn19IiwiaWF0IjoxNzczNDgxMTgxfQ.fIXUjVgLjQEJgz8vp4lmc5rKNKQPdOJfJXzls8uy8lNrUPxXwGUs4OWjmc09balMWHWxyyhPPKUAJiQPbc6rz5jDIIpld4qHlCryr2FcmJ9vvs-QHLdDfAeyT7Ft7vP-9W0cnqunJwXsKnQCRMcQ6SyfXD_6pvA74Pl6aQ3nhpwKPehgFIUyTINK58LDC8RFgDnZFBlD7vcqBysJKw5vX4wiX1RFpR0YJoljG_pN0XzlJSD7fkiSxtOSEA2SVraBaHfMMPHqxrKmh_WrjVKGOI2wmUuC1kMcyMMbrh_kQ-rBUHXQy7g0xMVhywDIHLJmur-7XyMb7XmcH1tMxDScTQ
 wix-site-id: 0ed288c3-389c-4557-a00a-c2e1c0899efe
 Content-Type: application/json
 ```
 
-**One-time setup (account owner does this once):**
-1. Go to `https://manage.wix.com` → Settings → API Keys Manager
-2. Click **+ Generate Key** → name it "Agent Access — Raffle Engine"
-3. Set permissions: **All site permissions**
-4. Copy the key → save as `WIX_API_KEY` in `.env.local` and in `~/.claude/mcp.json` env section
-5. Get your account ID from the Dashboard URL: `manage.wix.com/account/<ACCOUNT_ID>/...`
-   Save as `WIX_ACCOUNT_ID` in same places.
-
-**API key stored in:** `.env.local` (gitignored) as:
-```
-WIX_API_KEY=<key from dashboard>
-WIX_ACCOUNT_ID=<account id from dashboard URL>
-```
-
-**Example REST call (Codex/Antigravity):**
+**READ example (works):**
 ```bash
 curl https://www.wixapis.com/wix-data/v2/items/query \
   -H "Authorization: APIKey $WIX_API_KEY" \
   -H "wix-site-id: 0ed288c3-389c-4557-a00a-c2e1c0899efe" \
   -H "Content-Type: application/json" \
   -d '{"dataCollectionId":"Raffles","query":{"filter":{"status":"ACTIVE"}}}'
+```
+
+**WRITE example (fails with WDE0117 — use Playwright or MCP instead):**
+```bash
+# This does NOT work with the static APIKey — returns WDE0117 MetaSite not found
+curl https://www.wixapis.com/wix-data/v2/items \
+  -X POST -H "Authorization: APIKey $WIX_API_KEY" ...
 ```
 
 ---
@@ -216,10 +279,26 @@ App.tsx                  ← HashRouter with all routes including /winners
 
 ## Multi-Agent Collaboration
 
-| Agent | Wix access method | Code access |
-|-------|------------------|-------------|
-| Claude Code | `mcp__claude_ai_Wix__*` tools (always available) + mcp-remote (token in `~/.mcp-auth/`) | Full read/write |
-| Codex | Direct REST API with `WIX_API_KEY` from `.env.local` | Full read/write |
-| Antigravity | Direct REST API + `mcp_config.json` wix-studio entry | Full read/write |
+| Agent | CMS reads | CMS writes | Notes |
+|-------|-----------|------------|-------|
+| Claude Code | Static API key OR Wix MCP | Wix MCP OAuth (restart session if tools missing) | MCP tools: `mcp__claude_ai_Wix__CallWixSiteAPI` |
+| Antigravity | Static API key | Playwright seeder (`seed-wix-cms.js`) OR puppeteer intercept | Puppeteer MCP available in Antigravity |
+| Codex | Static API key | `node C:/temp/seed-wix-cms.js` (Playwright) | Playwright installed at `npx playwright` |
 
-When in doubt, prefer the `mcp__claude_ai_Wix__CallWixSiteAPI` tool — it handles auth automatically.
+### CMS write decision tree
+1. **Claude Code + Wix MCP tools visible** → use `mcp__claude_ai_Wix__CallWixSiteAPI`
+2. **Claude Code + MCP tools missing** → restart session (mcp-remote re-auths via browser)
+3. **Any agent, bulk seed** → `node C:/temp/seed-wix-cms.js` (Playwright, captured Bearer token)
+4. **Antigravity, interactive** → puppeteer to `manage.wix.com`, intercept Bearer, call wixapis.com
+5. **Last resort** → paste JSON directly into Wix Editor → CMS → collection
+
+### Seed data reference
+All prize draw records (5 subscription draws + 5 test draws) are in:
+```
+c:/Users/zungu/Mindful-Gaming-Raffle-Engine/scripts/seed-prize-draws.js
+```
+The Playwright seeder at `C:/temp/seed-wix-cms.js` contains the same data in runnable form.
+
+### New CMS collections needed (for credit system — create before deploying Velo)
+- `MemberCredits` — fields: `memberId` (text), `balancePence` (number), `lastUpdated` (date)
+- `CreditTransactions` — fields: `memberId` (text), `amountPence` (number), `type` (text: PURCHASE|REFUND|GRANT|SPEND), `referenceId` (text), `note` (text), `createdAt` (date)

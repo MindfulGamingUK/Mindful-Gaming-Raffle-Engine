@@ -1,5 +1,5 @@
-import React from 'react';
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { Layout } from './components/Layout';
 import { Landing } from './pages/Landing';
@@ -12,11 +12,18 @@ import { EntryStatus } from './pages/EntryStatus';
 import { Support } from './pages/Support';
 import { Winners } from './pages/Winners';
 
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useEffect(() => { window.scrollTo(0, 0); }, [pathname]);
+  return null;
+}
+
 const App: React.FC = () => {
   return (
     <HashRouter>
       <AuthProvider>
         <Layout>
+          <ScrollToTop />
           <Routes>
             <Route path="/" element={<Landing />} />
             <Route path="/win-to-support" element={<Landing />} />

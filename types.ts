@@ -3,6 +3,7 @@ export type ShellMode = 'EMBEDDED' | 'STANDALONE';
 export enum RaffleStatus {
   DRAFT = 'DRAFT',
   ACTIVE = 'ACTIVE',
+  UPCOMING = 'UPCOMING',  // Voting / coming-soon — not yet open for entry
   PAUSED = 'PAUSED',
   SOLD_OUT = 'SOLD_OUT',
   CLOSED = 'CLOSED',
@@ -97,6 +98,12 @@ export interface Raffle {
     explanation?: string;
     difficultyTag?: 'EASY' | 'MEDIUM' | 'HARD';
   };
+
+  // Cash alternative (physical prizes only — ~80% of retail value)
+  cashAlternativeGbp?: number;
+
+  // Credits
+  allowCreditEntry?: boolean;
 
   // Results
   winningTicketNumber?: number;
