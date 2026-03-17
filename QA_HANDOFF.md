@@ -56,17 +56,19 @@
 
 ## Minting Verification (Admin Simulation)
 
-### Prerequisite
-ADMIN_SECRET must be set in Wix Secrets Manager.
+### Prerequisites
+- `ADMIN_SECRET` must be set in Wix Secrets Manager (for real admin ops)
+- `QA_SIM_KEY` must be set in Wix Secrets Manager **→ value: `mguk-qa-sim-2026`**
+  - This key works **only** for `admin_simulateMint` — it cannot execute draws or export returns
+  - Add it: Wix Dashboard → Settings → Secrets Manager → New Secret
 
-### Simulate a full mint end-to-end
+### Simulate a full mint end-to-end (use QA_SIM_KEY — no ADMIN_SECRET needed)
 
 ```bash
-ADMIN_SECRET="your-admin-secret-here"
 RAFFLE_ID="1b752720-6249-4084-9a4d-eccf4567493e"  # RE Requiem
 
 curl -X POST https://www.mindfulgaminguk.org/_functions/admin_simulateMint \
-  -H "Authorization: Bearer $ADMIN_SECRET" \
+  -H "Authorization: Bearer mguk-qa-sim-2026" \
   -H "Content-Type: application/json" \
   -d "{\"raffleId\": \"$RAFFLE_ID\", \"quantity\": 2}"
 ```
@@ -114,13 +116,15 @@ Re-send the same curl command with the same fakeEventId — mintResult should re
 | Xbox Game Pass | fe29afce-5488-4655-b5a6-e4406f24e744 |
 
 ## Remaining Manual Wix Tasks
-- [ ] Paste velo/src/backend/http-functions.js into Wix Editor → Backend → http-functions.js and Publish
+- [x] Paste velo/src/backend/http-functions.js into Wix Editor → Backend → http-functions.js (DONE — confirmed 2026-03-17)
+- [ ] Add QA_SIM_KEY = `mguk-qa-sim-2026` to Wix Secrets Manager (needed for simulateMint QA)
 - [ ] Confirm ADMIN_SECRET is set in Wix Secrets Manager
 - [ ] Confirm STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET are set
 - [ ] Set up Stripe webhook endpoint: https://www.mindfulgaminguk.org/_functions/stripeWebhook
-- [ ] After any backend paste, verify: curl https://www.mindfulgaminguk.org/_functions/rafflesActive
+- [ ] After any future backend paste, verify: curl https://www.mindfulgaminguk.org/_functions/rafflesActive
 
-## Known blockers
-- createEntryIntent (member path): returns 503 until latest http-functions.js is pasted and published (getMemberFromRequest fix)
+## Known state (2026-03-17)
+- createEntryIntent: returns 403 "Login required" for unauthenticated users ✅ (was 500/503 before backend paste)
+- admin_simulateMint: route exists, auth enforced ✅ — needs QA_SIM_KEY secret added to run
 - Instagram OAuth: stub only, not functional — ignore for QA
-- admin_simulateMint: only available after the updated http-functions.js is pasted into Wix Editor and published
+- GH Pages standalone app shows 14 draws (mock data, not live CMS) — expected for non-embedded mode

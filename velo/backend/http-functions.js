@@ -1098,8 +1098,15 @@ export function options_admin_simulateMint(request) { return response(ok, {}, re
 
 export async function post_admin_simulateMint(request) {
     try {
-        const secret = await wixSecretsBackend.getSecret('ADMIN_SECRET');
-        if (!timingSafeEqualHex(request.headers['Authorization'] || '', `Bearer ${secret}`)) {
+        // Accepts either ADMIN_SECRET or the dedicated QA_SIM_KEY (simulation only — cannot execute draws).
+        const [adminSecret, qaSimKey] = await Promise.all([
+            wixSecretsBackend.getSecret('ADMIN_SECRET'),
+            wixSecretsBackend.getSecret('QA_SIM_KEY').catch(() => null)
+        ]);
+        const authHeader = request.headers['Authorization'] || '';
+        const isAdmin = timingSafeEqualHex(authHeader, `Bearer ${adminSecret}`);
+        const isQa = qaSimKey && timingSafeEqualHex(authHeader, `Bearer ${qaSimKey}`);
+        if (!isAdmin && !isQa) {
             return response(forbidden, { error: "Unauthorized" }, request);
         }
         const body = await request.body.json();
