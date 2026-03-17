@@ -123,8 +123,29 @@ Re-send the same curl command with the same fakeEventId — mintResult should re
 - [ ] Set up Stripe webhook endpoint: https://www.mindfulgaminguk.org/_functions/stripeWebhook
 - [ ] After any future backend paste, verify: curl https://www.mindfulgaminguk.org/_functions/rafflesActive
 
-## Known state (2026-03-17)
-- createEntryIntent: returns 403 "Login required" for unauthenticated users ✅ (was 500/503 before backend paste)
-- admin_simulateMint: route exists, auth enforced ✅ — needs QA_SIM_KEY secret added to run
+## Known state (2026-03-17, updated evening)
+- createEntryIntent: returns 403 "Login required" for unauthenticated users ✅
+- admin_simulateMint: QA_SIM_KEY added to Secrets Manager ✅ — paste latest http-functions.js to activate
+- CMS dates: all 6 draws fixed — closeDate 29 Apr 23:59 BST, drawDate 30 Apr 14:00 BST ✅
+- Labels: "Prize Draw" → "Lottery Draw" everywhere ✅
+- Date formatting: now always Europe/London timezone ✅
+- Login bridge: postMessage uses '*' targetOrigin, 3s ACK timeout, error banner in UI ✅
+- Embedded nav: slimmer single-bar (no gradient stripe, reduced padding) ✅
 - Instagram OAuth: stub only, not functional — ignore for QA
-- GH Pages standalone app shows 14 draws (mock data, not live CMS) — expected for non-embedded mode
+- GH Pages standalone app: mock data mode — expected, ignore for QA (embed only)
+
+## Manual Wix steps still required
+- [ ] Paste latest velo/src/backend/http-functions.js into Wix Editor → Backend → http-functions.js → Publish
+  - Activates: QA_SIM_KEY support, getAuthHeader() case fix
+- [ ] Paste updated velo/wix_assets/win-to-support-page-code.js into Wix Editor → win-to-support page → Page Code → Publish
+  - Fixes: login bridge reliability ({ modal: true } on promptLogin)
+- [ ] Confirm ADMIN_SECRET, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET in Wix Secrets Manager
+- [ ] Set up Stripe webhook: https://www.mindfulgaminguk.org/_functions/stripeWebhook
+
+## Routes for Codex browser QA (embedded app on win-to-support)
+- / — 6 draws, ALL tab default, "Lottery Draw" badge on RE9/PS5 Pro/Switch 2, "Prize Competition" on MacBook/PS Plus/Xbox
+- /draw/ps5-pro-console — closes 29 Apr, draw 30 Apr (NOT "1 May closes"); Open badge; disc drive note in description
+- /draw/resident-evil-9-requiem-ps5 — "Lottery Draw" badge (not "Prize Draw")
+- /winners — empty state, compliance footer "Reg. 213653"
+- /profile — login gate for logged-out users
+- Login button — shows "…" while waiting, shows red error banner if bridge fails
