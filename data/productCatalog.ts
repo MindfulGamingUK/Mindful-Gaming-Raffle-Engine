@@ -31,6 +31,9 @@ export interface ImagePackageSeed {
   status: ImagePackageStatus;
 }
 
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, '');
+const assetPath = (path: string): string => `${BASE}${path}`;
+
 // Starter product database for Sprint 1 catalogue planning.
 export const starterProducts: ProductSeed[] = [
   {
@@ -183,8 +186,8 @@ export const starterProducts: ProductSeed[] = [
 export const imagePackages: ImagePackageSeed[] = [
   {
     id: 'pkg_requiem_launch',
-    heroPath: '/assets/prizes/placeholder.svg',
-    galleryPaths: ['/assets/prizes/placeholder.svg'],
+    heroPath: assetPath('/assets/prizes/placeholder.svg'),
+    galleryPaths: [assetPath('/assets/prizes/placeholder.svg')],
     altText: 'Resident Evil Requiem game artwork placeholder',
     sourceType: 'PLACEHOLDER',
     licenseNote: 'Replace with licensed Capcom pack before publish.',
@@ -192,8 +195,8 @@ export const imagePackages: ImagePackageSeed[] = [
   },
   {
     id: 'pkg_gta6_standard',
-    heroPath: '/assets/prizes/placeholder.svg',
-    galleryPaths: ['/assets/prizes/placeholder.svg'],
+    heroPath: assetPath('/assets/prizes/placeholder.svg'),
+    galleryPaths: [assetPath('/assets/prizes/placeholder.svg')],
     altText: 'Grand Theft Auto VI artwork placeholder',
     sourceType: 'PLACEHOLDER',
     licenseNote: 'Await approved Rockstar asset usage.',
@@ -201,8 +204,8 @@ export const imagePackages: ImagePackageSeed[] = [
   },
   {
     id: 'pkg_cod_ops7',
-    heroPath: '/assets/prizes/placeholder.svg',
-    galleryPaths: ['/assets/prizes/placeholder.svg'],
+    heroPath: assetPath('/assets/prizes/placeholder.svg'),
+    galleryPaths: [assetPath('/assets/prizes/placeholder.svg')],
     altText: 'Call of Duty game artwork placeholder',
     sourceType: 'PLACEHOLDER',
     licenseNote: 'Await approved Activision asset usage.',
@@ -210,8 +213,8 @@ export const imagePackages: ImagePackageSeed[] = [
   },
   {
     id: 'pkg_fc26_ultimate',
-    heroPath: '/assets/prizes/placeholder.svg',
-    galleryPaths: ['/assets/prizes/placeholder.svg'],
+    heroPath: assetPath('/assets/prizes/placeholder.svg'),
+    galleryPaths: [assetPath('/assets/prizes/placeholder.svg')],
     altText: 'EA Sports FC title artwork placeholder',
     sourceType: 'PLACEHOLDER',
     licenseNote: 'Await approved EA asset usage.',
@@ -219,8 +222,8 @@ export const imagePackages: ImagePackageSeed[] = [
   },
   {
     id: 'pkg_psn_100',
-    heroPath: '/assets/prizes/placeholder.svg',
-    galleryPaths: ['/assets/prizes/placeholder.svg'],
+    heroPath: assetPath('/assets/prizes/placeholder.svg'),
+    galleryPaths: [assetPath('/assets/prizes/placeholder.svg')],
     altText: 'PlayStation gift card placeholder',
     sourceType: 'PLACEHOLDER',
     licenseNote: 'Use own photographed card mockup if official assets unavailable.',
@@ -228,8 +231,8 @@ export const imagePackages: ImagePackageSeed[] = [
   },
   {
     id: 'pkg_xbox_100',
-    heroPath: '/assets/prizes/placeholder.svg',
-    galleryPaths: ['/assets/prizes/placeholder.svg'],
+    heroPath: assetPath('/assets/prizes/placeholder.svg'),
+    galleryPaths: [assetPath('/assets/prizes/placeholder.svg')],
     altText: 'Xbox gift card placeholder',
     sourceType: 'PLACEHOLDER',
     licenseNote: 'Use own photographed card mockup if official assets unavailable.',
@@ -237,8 +240,8 @@ export const imagePackages: ImagePackageSeed[] = [
   },
   {
     id: 'pkg_steam_100',
-    heroPath: '/assets/prizes/placeholder.svg',
-    galleryPaths: ['/assets/prizes/placeholder.svg'],
+    heroPath: assetPath('/assets/prizes/placeholder.svg'),
+    galleryPaths: [assetPath('/assets/prizes/placeholder.svg')],
     altText: 'Steam wallet gift card placeholder',
     sourceType: 'PLACEHOLDER',
     licenseNote: 'Use own photographed card mockup if official assets unavailable.',
@@ -246,8 +249,8 @@ export const imagePackages: ImagePackageSeed[] = [
   },
   {
     id: 'pkg_dualsense_edge',
-    heroPath: '/assets/prizes/placeholder.svg',
-    galleryPaths: ['/assets/prizes/placeholder.svg'],
+    heroPath: assetPath('/assets/prizes/placeholder.svg'),
+    galleryPaths: [assetPath('/assets/prizes/placeholder.svg')],
     altText: 'DualSense Edge controller placeholder',
     sourceType: 'PLACEHOLDER',
     licenseNote: 'Prioritize owned studio photos.',
@@ -255,8 +258,8 @@ export const imagePackages: ImagePackageSeed[] = [
   },
   {
     id: 'pkg_elite_series_2',
-    heroPath: '/assets/prizes/placeholder.svg',
-    galleryPaths: ['/assets/prizes/placeholder.svg'],
+    heroPath: assetPath('/assets/prizes/placeholder.svg'),
+    galleryPaths: [assetPath('/assets/prizes/placeholder.svg')],
     altText: 'Xbox Elite controller placeholder',
     sourceType: 'PLACEHOLDER',
     licenseNote: 'Prioritize owned studio photos.',
@@ -264,8 +267,8 @@ export const imagePackages: ImagePackageSeed[] = [
   },
   {
     id: 'pkg_steam_deck_512',
-    heroPath: '/assets/prizes/bundle_steam_deck.svg',
-    galleryPaths: ['/assets/prizes/bundle_steam_deck.svg'],
+    heroPath: assetPath('/assets/prizes/bundle_steam_deck.svg'),
+    galleryPaths: [assetPath('/assets/prizes/bundle_steam_deck.svg')],
     altText: 'Steam Deck OLED product visual',
     sourceType: 'PLACEHOLDER',
     licenseNote: 'Swap for licensed/owned photography package before launch.',
@@ -273,8 +276,8 @@ export const imagePackages: ImagePackageSeed[] = [
   },
   {
     id: 'pkg_switch2_bundle',
-    heroPath: '/assets/prizes/bundle_switch_oled.svg',
-    galleryPaths: ['/assets/prizes/bundle_switch_oled.svg'],
+    heroPath: assetPath('/assets/prizes/bundle_switch_oled.svg'),
+    galleryPaths: [assetPath('/assets/prizes/bundle_switch_oled.svg')],
     altText: 'Nintendo handheld console visual placeholder',
     sourceType: 'PLACEHOLDER',
     licenseNote: 'Swap for official assets when available.',
@@ -282,8 +285,8 @@ export const imagePackages: ImagePackageSeed[] = [
   },
   {
     id: 'pkg_ps5_slim_bundle',
-    heroPath: '/assets/prizes/bundle_ps5_pro.svg',
-    galleryPaths: ['/assets/prizes/bundle_ps5_pro.svg'],
+    heroPath: assetPath('/assets/prizes/bundle_ps5_pro.svg'),
+    galleryPaths: [assetPath('/assets/prizes/bundle_ps5_pro.svg')],
     altText: 'PlayStation console bundle visual placeholder',
     sourceType: 'PLACEHOLDER',
     licenseNote: 'Replace with licensed PS5 Slim photography.',

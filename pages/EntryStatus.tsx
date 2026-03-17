@@ -99,20 +99,25 @@ export const EntryStatus: React.FC = () => {
 
       {status === 'FAILED' && (
         <div className="animate-fadeIn">
-          <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-6 text-3xl">✕</div>
+          <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-6 text-3xl">&#215;</div>
           <h2 className="text-2xl font-bold text-brand-dark mb-2">Payment Failed or Expired</h2>
           <p className="text-slate-500 mb-8 max-w-sm mx-auto">
             We could not confirm the transaction. No funds have been taken and no tickets were issued.
           </p>
-          <div className="flex justify-center gap-4">
-            <Link to="/draws"><Button>Return to Draws</Button></Link>
+          <div className="flex flex-col sm:flex-row justify-center gap-4">
+            <Link to="/">
+              <Button>Try Again</Button>
+            </Link>
+            <a href="mailto:info@mindfulgaminguk.org?subject=Payment%20query">
+              <Button variant="secondary">Contact Support</Button>
+            </a>
           </div>
         </div>
       )}
 
       {status === 'SUCCESS' && (
         <div className="animate-fadeIn">
-          <div className="w-20 h-20 bg-green-100 text-green-700 rounded-full flex items-center justify-center mx-auto mb-6 text-4xl shadow-sm">✓</div>
+          <div className="w-20 h-20 bg-green-100 text-green-700 rounded-full flex items-center justify-center mx-auto mb-6 text-4xl shadow-sm">&#10003;</div>
           <h2 className="text-3xl font-bold text-brand-dark mb-4">You're In!</h2>
           <p className="text-slate-600 mb-8">
             Good luck! A ticket receipt has been sent to your email.
@@ -131,10 +136,10 @@ export const EntryStatus: React.FC = () => {
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link to="/my-entries">
-              <Button variant="secondary" className="w-full sm:w-auto">View Wallet</Button>
+              <Button className="w-full sm:w-auto">View My Tickets</Button>
             </Link>
-            <Link to="/draws">
-              <Button className="w-full sm:w-auto">Enter Another Draw</Button>
+            <Link to="/">
+              <Button variant="secondary" className="w-full sm:w-auto">Back to All Draws</Button>
             </Link>
           </div>
         </div>

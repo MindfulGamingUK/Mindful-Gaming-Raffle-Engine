@@ -48,43 +48,44 @@ This document provides step-by-step instructions for creating and configuring th
 Add this to the page's Velo code (`win-to-support.js`):
 
 ```javascript
-// win-to-support.js (Page Code)
-$w.onReady(function () {
-    // Inject config for the SPA
-    window.__MGUK_RAFFLE_CONFIG__ = {
-        shellMode: 'EMBEDDED',
-        promoter: {
-            name: 'Mindful Gaming UK',
-            address: 'Birmingham, England',
-            charityNumber: '1212285',
-            localAuthority: 'Birmingham City Council',
-            lotteryRef: 'PENDING_APPLICATION'
-        },
-        siteLinks: {
-            about: '/about',
-            projects: '/projects',
-            support: '/support',
-            resources: '/resources',
-            contact: '/contact',
-            donate: 'https://mindfulgaminguk.raisely.com',
-            rules: '/rules',
-            privacy: '/privacy-policy',
-            terms: '/terms'
-        },
-        apiConfig: {
-            baseUrl: 'https://www.mindfulgaminguk.org/_functions',
-            allowOrigins: [
-                'https://www.mindfulgaminguk.org',
-                'http://localhost:3000'
-            ]
-        }
-    };
+import { authentication } from 'wix-members-frontend';
 
-    // Optional: Load the SPA bundle
-    // const container = $w('#raffleAppContainer');
-    // container.src = 'https://cdn.example.com/raffle-spa/index.html';
+const RAFFLE_APP_COMPONENT_ID = '#raffleAppContainer';
+const RAFFLE_APP_URL = 'https://mindfulgaminguk.github.io/Mindful-Gaming-Raffle-Engine/';
+const LOGIN_BRIDGE_REQUEST = 'MGUK_MEMBERS_PROMPT_LOGIN';
+const LOGIN_BRIDGE_ACK = 'MGUK_MEMBERS_PROMPT_LOGIN_ACK';
+const LOGIN_BRIDGE_RESULT = 'MGUK_MEMBERS_LOGIN_RESULT';
+
+$w.onReady(function () {
+    const raffleApp = $w(RAFFLE_APP_COMPONENT_ID);
+    raffleApp.src = RAFFLE_APP_URL;
+
+    raffleApp.onMessage((event) => {
+        const message = event.data || {};
+        if (message.type !== LOGIN_BRIDGE_REQUEST) return;
+
+        raffleApp.postMessage({ type: LOGIN_BRIDGE_ACK });
+
+        authentication.promptLogin()
+            .then(() => {
+                raffleApp.postMessage({ type: LOGIN_BRIDGE_RESULT, ok: true });
+            })
+            .catch((error) => {
+                raffleApp.postMessage({
+                    type: LOGIN_BRIDGE_RESULT,
+                    ok: false,
+                    error: error instanceof Error ? error.message : 'Login cancelled'
+                });
+            });
+    });
 });
 ```
+
+> [!NOTE]
+> `window.__MGUK_RAFFLE_CONFIG__` does not help when the raffle is hosted on GitHub Pages inside a Wix `HtmlComponent`. The live integration needs the `HtmlComponent` `src` set directly and the login bridge above so the iframe can request `authentication.promptLogin()`.
+
+> [!TIP]
+> A paste-ready copy of this snippet lives at `velo/wix_assets/win-to-support-page-code.js`.
 
 ---
 

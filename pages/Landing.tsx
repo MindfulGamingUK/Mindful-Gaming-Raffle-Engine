@@ -128,7 +128,7 @@ export const Landing: React.FC = () => {
                   <p className="text-xs leading-5 text-white/70 mt-1">Browse lottery draws and prize competitions — all prizes are real, dispatched to UK winners.</p>
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-white">2. Enter from 50p to £1</p>
+                  <p className="text-sm font-bold text-white">2. Enter from 50p to £2</p>
                   <p className="text-xs leading-5 text-white/70 mt-1">Every ticket directly funds Mindful Gaming UK's awareness and support work.</p>
                 </div>
                 <div>

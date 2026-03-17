@@ -143,7 +143,7 @@ The Velo backend lives in `velo/src/backend/`. Changes here must be **manually p
 
 | Local file | Wix Editor destination |
 |-----------|----------------------|
-| `velo/src/backend/http-functions.js` | `public/http-functions.js` |
+| `velo/src/backend/http-functions.js` | `Backend > http-functions.js` (**NOT** `public/`) |
 | `velo/src/backend/raffle-engine.js` | `backend/raffle-engine.js` |
 | `velo/src/backend/instagram.jsw` | `backend/instagram.jsw` |
 

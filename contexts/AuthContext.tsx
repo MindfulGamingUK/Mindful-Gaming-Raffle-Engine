@@ -6,7 +6,7 @@ import { isOver18 } from '../utils/formatting';
 interface AuthContextType {
   user: UserProfile | null;
   loading: boolean;
-  login: () => Promise<void>;
+  login: () => Promise<UserProfile | null>;
   logout: () => Promise<void>;
   updateUser: (updates: Partial<UserProfile>) => Promise<void>;
   isEligible: boolean; // True if 18+ AND GB Resident
@@ -33,9 +33,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const u = await apiLogin();
       setUser(u);
+      return u;
     } catch (error) {
       console.error('Login failed', error);
       setUser(null);
+      return null;
     } finally {
       setLoading(false);
     }

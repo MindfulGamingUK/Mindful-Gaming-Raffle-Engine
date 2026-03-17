@@ -173,19 +173,16 @@ export function options_paypalWebhook(request) { return response(ok, {}, request
 export function options_winners(request) { return response(ok, {}, request); }
 
 async function getMemberFromRequest(request) {
-    // SECURITY: In Prod, we use Wix Members Identity
-    const isDev = request.query.devMode === 'true' || request.headers['x-mock-role'];
-
-    if (isDev) {
-        const role = request.headers['x-mock-role'] || 'Member';
-        return {
-            id: "member_123",
-            role: role,
-            loggedIn: role === 'Member'
-        };
-    }
-
+    // SECURITY: In Prod, we use Wix Members Identity.
+    // NOTE: request.query is null (not {}) for POST requests with no query string in Wix HTTP
+    // functions. Use optional chaining and wrap the entire function body to prevent a
+    // synchronous TypeError from escaping before the try/catch.
     try {
+        const isDev = request.query?.devMode === 'true' || request.headers?.['x-mock-role'];
+        if (isDev) {
+            const role = request.headers?.['x-mock-role'] || 'Member';
+            return { id: "member_123", role, loggedIn: role === 'Member' };
+        }
         const member = await currentMember.getMember();
         return {
             id: member?._id,
@@ -240,7 +237,18 @@ export async function get_rafflesActive(request) {
         const results = await wixData.query(COLLECTIONS.RAFFLES)
             .eq('status', 'ACTIVE')
             .find({ suppressAuth: true });
-        return response(ok, results.items, request);
+        // Exclude internal test draws from the public catalogue
+        const publicItems = results.items
+            .filter(r => !r.slug?.startsWith('test-'))
+            .map(r => {
+                // SECURITY: strip correctAnswerIndex from skill questions
+                if (r.skillQuestion && r.skillQuestion.correctAnswerIndex !== undefined) {
+                    const { correctAnswerIndex, ...safeQ } = r.skillQuestion;
+                    return { ...r, skillQuestion: safeQ };
+                }
+                return r;
+            });
+        return response(ok, publicItems, request);
     } catch (error) {
         return response(serverError, { error: error.message }, request);
     }
@@ -362,8 +370,8 @@ export async function post_createEntryIntent(request) {
                 .eq('raffleId', raffleId).eq('memberId', user.id).eq('status', 'INITIATED')
                 .find({ suppressAuth: true })
         ]);
-        const confirmedCount = confirmedEntries.items.reduce((sum, e) => sum + (e.ticketCount || 0), 0);
-        const pendingCount = pendingIntents.items.reduce((sum, i) => sum + (i.quantity || 0), 0);
+        const confirmedCount = confirmedEntries.items.reduce((sum, entry) => sum + (entry.ticketCount || 0), 0);
+        const pendingCount = pendingIntents.items.reduce((sum, intent) => sum + (intent.quantity || 0), 0);
         if (confirmedCount + pendingCount + quantity > memberLimit) {
             return response(badRequest, {
                 error: `Exceeds per-member limit of ${memberLimit} tickets per draw`,
@@ -374,10 +382,11 @@ export async function post_createEntryIntent(request) {
         }
 
         // 5. Handle Skill Question (PRIZE_COMPETITION only)
-        if (raffle.drawType === 'PRIZE_COMPETITION') {
-            if (skillAnswerIndex === undefined || skillAnswerIndex !== raffle.skillQuestion.correctAnswerIndex) {
-                return response(badRequest, { error: "Incorrect or missing answer to skill question" }, request);
-            }
+        // Answer is recorded but NOT validated here — eligibility is determined at mint time.
+        // Incorrect answers create an INELIGIBLE entry; users are not told if they are right or wrong
+        // until draw day. This is disclosed in the T&Cs.
+        if (raffle.drawType === 'PRIZE_COMPETITION' && skillAnswerIndex === undefined) {
+            return response(badRequest, { error: "Skill question answer required" }, request);
         }
 
         const amountPence = Math.round(quantity * (raffle.ticketPrice * 100));
@@ -402,7 +411,7 @@ export async function post_createEntryIntent(request) {
             expiresAt: new Date(now.getTime() + 30 * 60000)
         };
 
-        const result = await wixData.insert(COLLECTIONS.INTENTS, intent);
+        const result = await wixData.insert(COLLECTIONS.INTENTS, intent, { suppressAuth: true });
 
         return response(ok, {
             intentId: result._id,
@@ -430,17 +439,25 @@ export async function post_createGuestEntryIntent(request) {
             return response(badRequest, { error: "Missing guest information" }, request);
         }
 
+        if (!guestData.fullName || !guestData.deliveryAddress || !guestData.postcode) {
+            return response(badRequest, { error: "Full name, delivery address and postcode are required for prize dispatch" }, request);
+        }
+
         if (!isOver18(guestData.dob)) return response(badRequest, { error: "Must be 18+" }, request);
 
         const raffleResult = await wixData.query(COLLECTIONS.RAFFLES).eq('_id', raffleId).find();
         const raffle = raffleResult.items[0];
         if (!raffle || raffle.status !== 'ACTIVE') return response(badRequest, { error: "Raffle invalid" }, request);
 
-        // Skill Gate
-        if (raffle.drawType === 'PRIZE_COMPETITION') {
-            if (skillAnswerIndex === undefined || skillAnswerIndex !== raffle.skillQuestion.correctAnswerIndex) {
-                return response(badRequest, { error: "Incorrect skill answer" }, request);
-            }
+        // Enforce open/close window
+        const now = new Date();
+        if (now < new Date(raffle.openDate) || now > new Date(raffle.closeDate)) {
+            return response(badRequest, { error: "Raffle is not open for entries" }, request);
+        }
+
+        // Skill Gate — answer required but correctness not revealed. Eligibility enforced at mint.
+        if (raffle.drawType === 'PRIZE_COMPETITION' && skillAnswerIndex === undefined) {
+            return response(badRequest, { error: "Skill question answer required" }, request);
         }
 
         const amountPence = Math.round(quantity * (raffle.ticketPrice * 100));
@@ -449,6 +466,9 @@ export async function post_createGuestEntryIntent(request) {
         const intent = {
             guestId: `GUEST_${guestData.email}`,
             guestEmail: guestData.email,
+            guestFullName: guestData.fullName,
+            guestDeliveryAddress: guestData.deliveryAddress,
+            guestPostcode: guestData.postcode,
             magicLinkToken: magicToken,
             raffleId,
             quantity,
@@ -462,8 +482,62 @@ export async function post_createGuestEntryIntent(request) {
             expiresAt: new Date(Date.now() + 30 * 60000)
         };
 
-        const result = await wixData.insert(COLLECTIONS.INTENTS, intent);
-        return response(ok, { intentId: result._id, status: 'READY', magicToken }, request);
+        const result = await wixData.insert(COLLECTIONS.INTENTS, intent, { suppressAuth: true });
+        const intentId = result._id;
+
+        // Free entry (£0) — mint directly without Stripe
+        if (amountPence === 0) {
+            try {
+                await secureMintTickets({
+                    provider: 'FREE',
+                    providerEventId: `FREE_${intentId}`,
+                    intentId,
+                    amountPence: 0
+                });
+            } catch (mintErr) {
+                console.warn('Free mint failed:', mintErr.message);
+            }
+            return response(ok, { intentId, status: 'READY', magicToken, paymentUrl: null }, request);
+        }
+
+        // Paid entry — create Stripe Checkout Session
+        const stripeSecret = await wixSecretsBackend.getSecret('STRIPE_SECRET_KEY');
+        const siteBase = 'https://www.mindfulgaminguk.org';
+        const embeddedAppBase = `${siteBase}/win-to-support`;
+        const params = new URLSearchParams({
+            'payment_method_types[]': 'card',
+            'mode': 'payment',
+            'line_items[0][price_data][currency]': 'gbp',
+            'line_items[0][price_data][product_data][name]': `${raffle.title} — ${quantity} ticket(s)`,
+            'line_items[0][price_data][unit_amount]': String(amountPence),
+            'line_items[0][quantity]': '1',
+            'customer_email': guestData.email,
+            'success_url': `${siteBase}/win-to-support#/status/${intentId}?token=${magicToken}&session_id={CHECKOUT_SESSION_ID}`,
+            'cancel_url': `${siteBase}/win-to-support#/draw/${raffle.slug}`,
+            'metadata[intentId]': intentId,
+            'metadata[raffleId]': raffleId,
+            'metadata[magicToken]': magicToken,
+            'metadata[isGuest]': 'true'
+        });
+
+        const stripeRes = await fetch('https://api.stripe.com/v1/checkout/sessions', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${stripeSecret}`,
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: params.toString()
+        });
+
+        const session = await stripeRes.json();
+        if (!session.url) {
+            console.error('Stripe session error for guest:', session);
+            return response(serverError, { error: session.error?.message || 'Stripe session creation failed' }, request);
+        }
+
+        await wixData.update(COLLECTIONS.INTENTS, { ...result, externalSessionId: session.id }, { suppressAuth: true });
+
+        return response(ok, { intentId, status: 'READY', magicToken, paymentUrl: session.url }, request);
 
     } catch (e) {
         return response(serverError, { error: e.message }, request);
@@ -515,6 +589,7 @@ export async function post_createStripeCheckoutSession(request) {
 
         // Real Stripe Checkout Session
         const siteBase = 'https://www.mindfulgaminguk.org';
+        const embeddedAppBase = `${siteBase}/win-to-support`;
         const params = new URLSearchParams({
             'payment_method_types[]': 'card',
             'mode': 'payment',
@@ -522,8 +597,8 @@ export async function post_createStripeCheckoutSession(request) {
             'line_items[0][price_data][product_data][name]': `${raffle.title} — ${intent.quantity} ticket(s)`,
             'line_items[0][price_data][unit_amount]': String(intent.amountPence),
             'line_items[0][quantity]': '1',
-            'success_url': `${siteBase}/raffle-engine#/status/${intentId}?session_id={CHECKOUT_SESSION_ID}`,
-            'cancel_url': `${siteBase}/raffle-engine#/draw/${raffle.slug}`,
+            'success_url': `${embeddedAppBase}#/status/${intentId}?session_id={CHECKOUT_SESSION_ID}`,
+            'cancel_url': `${embeddedAppBase}#/draw/${raffle.slug}`,
             'metadata[intentId]': intentId,
             'metadata[raffleId]': intent.raffleId,
             'metadata[memberId]': user.id
@@ -565,7 +640,7 @@ export async function post_createPayPalOrder(request) {
         const orderId = `paypal_${Date.now()}`;
         const paymentUrl = `https://www.paypal.com/checkoutnow?token=${orderId}&intentId=${intentId}`;
 
-        await wixData.update(COLLECTIONS.INTENTS, { ...intent, externalSessionId: orderId });
+        await wixData.update(COLLECTIONS.INTENTS, { ...intent, externalSessionId: orderId }, { suppressAuth: true });
 
         return response(ok, { paymentUrl, intentId }, request);
     } catch (error) {
@@ -964,14 +1039,14 @@ export async function get_winners(request) {
             .limit(50)
             .find({ suppressAuth: true });
 
-        const winners = results.items.map(w => ({
-            _id: w._id,
-            drawType: w.drawType,
-            raffleTitle: w.raffleTitle,
-            drawDate: w.drawDate,
-            winningTicketDisplay: w.winningTicketDisplay,
-            winnerPublicLabel: w.winnerPublicLabel || null,
-            status: w.status
+        const winners = results.items.map((winner) => ({
+            _id: winner._id,
+            drawType: winner.drawType,
+            raffleTitle: winner.raffleTitle,
+            drawDate: winner.drawDate,
+            winningTicketDisplay: winner.winningTicketDisplay,
+            winnerPublicLabel: winner.winnerPublicLabel || null,
+            status: winner.status
         }));
 
         return response(ok, winners, request);
@@ -1011,11 +1086,211 @@ export async function post_authWithInstagram(request) {
             return response(badRequest, { error: "Authentication failed" }, request);
         }
 
-        // Ideally here we would also save the connection status to the user's profile extension
-        // to reflect it in subsequent get_session calls without needing a separate update.
-        // await wixData.update... (skipping for now as per plan, relying on client-side update or subsequent sync)
-
         return response(ok, result, request);
+    } catch (e) {
+        return response(serverError, { error: e.message }, request);
+    }
+}
+
+// --- QA SIMULATION ---
+
+export function options_admin_simulateMint(request) { return response(ok, {}, request); }
+
+export async function post_admin_simulateMint(request) {
+    try {
+        const secret = await wixSecretsBackend.getSecret('ADMIN_SECRET');
+        if (!timingSafeEqualHex(request.headers['Authorization'] || '', `Bearer ${secret}`)) {
+            return response(forbidden, { error: "Unauthorized" }, request);
+        }
+        const body = await request.body.json();
+        const { raffleId, quantity = 1, email = 'qa-test@mindfulgaming.local' } = body;
+        if (!raffleId) return response(badRequest, { error: "raffleId required" }, request);
+
+        // 1. Create a guest intent
+        const raffle = await wixData.get(COLLECTIONS.RAFFLES, raffleId, { suppressAuth: true });
+        if (!raffle) return response(notFound, { error: "Raffle not found" }, request);
+
+        const amountPence = Math.round(quantity * raffle.ticketPrice * 100);
+        const magicToken = `qa_sim_${Date.now()}`;
+        const now = new Date();
+
+        const intent = {
+            guestId: `GUEST_${email}`,
+            guestEmail: email,
+            guestFullName: 'QA Simulation',
+            guestDeliveryAddress: '5 Longmoor Road',
+            guestPostcode: 'B73 6UB',
+            magicLinkToken: magicToken,
+            raffleId,
+            quantity,
+            amountPence,
+            provider: 'STRIPE_TEST',
+            status: 'INITIATED',
+            rulesVersion: "2026.03-v1",
+            rulesUrl: "https://www.mindfulgaminguk.org/lottery-rules",
+            complianceTextHash: "sha256:pending",
+            createdAt: now,
+            expiresAt: new Date(now.getTime() + 30 * 60000)
+        };
+
+        const intentResult = await wixData.insert(COLLECTIONS.INTENTS, intent, { suppressAuth: true });
+        const intentId = intentResult._id;
+
+        // 2. Simulate the Stripe webhook — mint tickets directly
+        const fakeEventId = `qa_evt_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+        const mintResult = await secureMintTickets({
+            provider: 'STRIPE',
+            providerEventId: fakeEventId,
+            intentId,
+            amountPence
+        });
+
+        return response(ok, {
+            simulation: true,
+            intentId,
+            magicToken,
+            fakeEventId,
+            mintResult,
+            checkStatusUrl: `/_functions/guestStatus?token=${magicToken}`
+        }, request);
+    } catch (e) {
+        return response(serverError, { error: e.message }, request);
+    }
+}
+
+// --- CREDIT SYSTEM ---
+
+export function options_myCredits(request) { return response(ok, {}, request); }
+export function options_spendCredits(request) { return response(ok, {}, request); }
+
+/**
+ * GET /_functions/myCredits
+ * Returns the current credit balance (in pence) for the logged-in member.
+ * Creates a zero-balance record if none exists.
+ */
+export async function get_myCredits(request) {
+    const user = await getMemberFromRequest(request);
+    if (!user.loggedIn) return response(forbidden, { error: "Login required" }, request);
+
+    try {
+        const results = await wixData.query('MemberCredits')
+            .eq('memberId', user.id)
+            .find({ suppressAuth: true });
+
+        if (results.items.length === 0) {
+            return response(ok, { memberId: user.id, balancePence: 0 }, request);
+        }
+
+        const record = results.items[0];
+        return response(ok, { memberId: user.id, balancePence: record.balancePence || 0 }, request);
+    } catch (e) {
+        return response(serverError, { error: e.message }, request);
+    }
+}
+
+/**
+ * POST /_functions/spendCredits
+ * Body: { raffleId, quantity }
+ * Deducts the ticket cost from the member's credit balance and mints tickets directly.
+ * The raffle must have allowCreditEntry: true.
+ */
+export async function post_spendCredits(request) {
+    const user = await getMemberFromRequest(request);
+    if (!user.loggedIn) return response(forbidden, { error: "Login required" }, request);
+
+    try {
+        const body = await request.body.json();
+        const { raffleId, quantity } = body;
+
+        if (!raffleId || !quantity || quantity < 1) {
+            return response(badRequest, { error: "raffleId and quantity are required" }, request);
+        }
+
+        // 1. Validate raffle
+        const raffle = await wixData.get(COLLECTIONS.RAFFLES, raffleId, { suppressAuth: true });
+        if (!raffle) return response(notFound, { error: "Raffle not found" }, request);
+        if (raffle.status !== 'ACTIVE') return response(badRequest, { error: "Raffle not active" }, request);
+        if (!raffle.allowCreditEntry) return response(badRequest, { error: "Credit entry not enabled for this draw" }, request);
+
+        const costPence = Math.round(quantity * raffle.ticketPrice * 100);
+
+        // 2. Validate member profile
+        const profile = await getProfile(user.id);
+        if (!profile || !profile.residencyConfirmed) {
+            return response(forbidden, { error: "Profile incomplete — residency confirmation required" }, request);
+        }
+        if (profile.selfExclusionEndDate && new Date(profile.selfExclusionEndDate) > new Date()) {
+            return response(forbidden, { error: "Self-exclusion active" }, request);
+        }
+
+        // 3. Check credit balance (with basic optimistic lock via _updatedDate check)
+        const creditResults = await wixData.query('MemberCredits')
+            .eq('memberId', user.id)
+            .find({ suppressAuth: true });
+
+        if (creditResults.items.length === 0 || (creditResults.items[0].balancePence || 0) < costPence) {
+            return response(badRequest, {
+                error: "Insufficient credits",
+                balancePence: creditResults.items[0]?.balancePence || 0,
+                requiredPence: costPence
+            }, request);
+        }
+
+        const creditRecord = creditResults.items[0];
+
+        // 4. Create an entry intent marked as credit-paid
+        const now = new Date();
+        const intent = {
+            memberId: user.id,
+            raffleId,
+            quantity,
+            amountPence: costPence,
+            provider: 'CREDITS',
+            status: 'INITIATED',
+            rulesVersion: "2026.03-v1",
+            rulesUrl: "https://www.mindfulgaminguk.org/lottery-rules",
+            complianceTextHash: "sha256:pending",
+            createdAt: now,
+            expiresAt: new Date(now.getTime() + 10 * 60000)
+        };
+        const intentResult = await wixData.insert(COLLECTIONS.INTENTS, intent, { suppressAuth: true });
+
+        // 5. Deduct balance
+        creditRecord.balancePence = (creditRecord.balancePence || 0) - costPence;
+        creditRecord.lastUpdated = now;
+        await wixData.update('MemberCredits', creditRecord, { suppressAuth: true });
+
+        // 6. Record the spend transaction
+        await wixData.insert('CreditTransactions', {
+            memberId: user.id,
+            amountPence: -costPence,
+            type: 'SPEND',
+            referenceId: intentResult._id,
+            note: `Entry into ${raffle.title} — ${quantity} ticket(s)`,
+            createdAt: now
+        }, { suppressAuth: true });
+
+        // 7. Mint tickets via the engine (credit entries skip payment provider)
+        const mintResult = await secureMintTickets({
+            provider: 'CREDITS',
+            providerEventId: `credits_${intentResult._id}`,
+            intentId: intentResult._id,
+            amountPence: costPence
+        });
+
+        if (mintResult.status === 'ERROR') {
+            // Rollback balance on mint failure
+            creditRecord.balancePence += costPence;
+            await wixData.update('MemberCredits', creditRecord, { suppressAuth: true });
+            return response(badRequest, mintResult, request);
+        }
+
+        return response(ok, {
+            status: 'SUCCESS',
+            ticketNumbers: mintResult.ticketNumbers || [],
+            remainingBalancePence: creditRecord.balancePence
+        }, request);
+
     } catch (e) {
         return response(serverError, { error: e.message }, request);
     }

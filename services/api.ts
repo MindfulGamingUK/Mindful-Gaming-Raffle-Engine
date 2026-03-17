@@ -23,6 +23,121 @@ interface SessionEnvelope {
 
 const ACTIVE_RAFFLES_CACHE_KEY = 'mguk_active_raffles';
 const MOCK_USER_CACHE_KEY = 'mguk_mock_user';
+const WIX_SITE_ORIGIN = 'https://www.mindfulgaminguk.org';
+const WIX_RAFFLE_PAGE_URL = `${WIX_SITE_ORIGIN}/win-to-support`;
+const LOGIN_BRIDGE_REQUEST = 'MGUK_MEMBERS_PROMPT_LOGIN';
+const LOGIN_BRIDGE_ACK = 'MGUK_MEMBERS_PROMPT_LOGIN_ACK';
+const LOGIN_BRIDGE_RESULT = 'MGUK_MEMBERS_LOGIN_RESULT';
+
+const isEmbeddedInIframe = (): boolean => {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  return window.self !== window.top;
+};
+
+const wait = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
+const requestLoginBridgeAckOnce = (timeoutMs = 1200): Promise<boolean> => {
+  if (!isEmbeddedInIframe()) {
+    return Promise.resolve(false);
+  }
+
+  return new Promise((resolve) => {
+    let settled = false;
+
+    const cleanup = (value: boolean) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timer);
+      window.removeEventListener('message', handleMessage);
+      resolve(value);
+    };
+
+    const handleMessage = (event: MessageEvent) => {
+      if (event.origin !== WIX_SITE_ORIGIN) return;
+      if (event.data?.type !== LOGIN_BRIDGE_ACK) return;
+      cleanup(true);
+    };
+
+    const timer = window.setTimeout(() => cleanup(false), timeoutMs);
+    window.addEventListener('message', handleMessage);
+
+    try {
+      window.parent.postMessage(
+        {
+          type: LOGIN_BRIDGE_REQUEST,
+          returnUrl: WIX_RAFFLE_PAGE_URL
+        },
+        WIX_SITE_ORIGIN
+      );
+    } catch {
+      cleanup(false);
+    }
+  });
+};
+
+const requestLoginBridge = async (attempts = 3): Promise<boolean> => {
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const acknowledged = await requestLoginBridgeAckOnce();
+    if (acknowledged) {
+      return true;
+    }
+
+    if (attempt < attempts - 1) {
+      await wait(250);
+    }
+  }
+
+  return false;
+};
+
+const waitForLoginBridgeResult = (timeoutMs = 120000): Promise<boolean> => {
+  if (!isEmbeddedInIframe()) {
+    return Promise.resolve(false);
+  }
+
+  return new Promise((resolve) => {
+    let settled = false;
+
+    const cleanup = (value: boolean) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timer);
+      window.removeEventListener('message', handleMessage);
+      resolve(value);
+    };
+
+    const handleMessage = (event: MessageEvent) => {
+      if (event.origin !== WIX_SITE_ORIGIN) return;
+      if (event.data?.type !== LOGIN_BRIDGE_RESULT) return;
+      cleanup(Boolean(event.data?.ok));
+    };
+
+    const timer = window.setTimeout(() => cleanup(false), timeoutMs);
+    window.addEventListener('message', handleMessage);
+  });
+};
+
+const waitForAuthenticatedSession = async (
+  getSessionFn: () => Promise<UserProfile | null>,
+  timeoutMs = 15000,
+  intervalMs = 1000
+): Promise<UserProfile | null> => {
+  const deadline = Date.now() + timeoutMs;
+
+  while (Date.now() < deadline) {
+    const session = await getSessionFn();
+    if (session) {
+      return session;
+    }
+
+    await wait(intervalMs);
+  }
+
+  return null;
+};
 
 function parseJsonField(value: unknown): any {
   if (!value) return {};
@@ -475,13 +590,28 @@ class VeloRaffleApi implements IRaffleApi {
   async login() {
     const session = await this.getSession();
     if (session) return session;
-    // Redirect the TOP-level Wix frame to the members login page.
-    // returnUrl must be the Wix page (not the iframe src) so that after login
-    // Wix lands the user back on the raffle engine page.
-    const wixReturnUrl = 'https://www.mindfulgaminguk.org/win-to-support';
-    const loginUrl = `https://www.mindfulgaminguk.org/members/sign-in?redirectUrl=${encodeURIComponent(wixReturnUrl)}`;
-    (window.top ?? window).location.href = loginUrl;
-    return null as unknown as UserProfile;
+
+    // In the Wix-hosted iframe, ask the parent page to open the Wix Members login modal.
+    if (isEmbeddedInIframe()) {
+      const bridgeAvailable = await requestLoginBridge();
+      if (!bridgeAvailable) {
+        throw new Error('Wix member login bridge is not configured on the host page.');
+      }
+
+      const loginCompleted = await waitForLoginBridgeResult();
+      if (!loginCompleted) {
+        throw new Error('Member login was cancelled or did not complete.');
+      }
+
+      const authenticatedSession = await waitForAuthenticatedSession(() => this.getSession());
+      if (authenticatedSession) {
+        return authenticatedSession;
+      }
+
+      throw new Error('Member login completed, but no active session was found.');
+    }
+
+    throw new Error('Member login is only supported from the Wix-hosted raffle page.');
   }
   async logout() { }
   async getSession() {

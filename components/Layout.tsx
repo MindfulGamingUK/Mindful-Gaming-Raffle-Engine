@@ -142,18 +142,69 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
 
       {shellMode === 'EMBEDDED' ? (
         <div className="flex min-h-[50vh] flex-col bg-transparent font-sans text-gray-900">
-          <div className="sticky top-0 z-40 flex items-center justify-between border-b border-brand-orange/40 bg-brand-plum/95 p-3 text-white backdrop-blur md:hidden">
-             <Link to="/" className="flex items-center gap-2 text-sm font-black tracking-[0.24em] text-brand-yellow">
-               <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-yellow text-brand-dark">M</span>
-               MGUK
-             </Link>
-             <div className="flex items-center gap-4 text-xs font-medium">
-               <Link to="/draws">Vault</Link>
-               <a href={config.charityLinks.donationFormUrl} target="_blank" rel="noreferrer">Donate</a>
-               {user ? <Link to="/profile">Profile</Link> : <button onClick={() => login()}>Login</button>}
-             </div>
+          {/* Embedded nav — visible on ALL screen sizes */}
+          <div className="sticky top-0 z-40 border-b border-brand-orange/40 bg-brand-plum/95 text-white backdrop-blur">
+            <div className="h-[3px] w-full bg-gradient-to-r from-brand-orange via-brand-yellow to-brand-green" />
+            <div className="flex items-center justify-between px-4 py-2.5 sm:px-5">
+              <Link to="/" className="flex items-center gap-2 text-sm font-black tracking-[0.22em] text-brand-yellow">
+                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-yellow text-brand-dark text-xs font-black">MG</span>
+                <span className="hidden xs:inline">MGUK</span>
+              </Link>
+
+              <div className="flex items-center gap-1 sm:gap-2">
+                {[
+                  { to: '/', label: 'Draws' },
+                  { to: '/winners', label: 'Winners' },
+                  { to: '/profile', label: 'Profile' },
+                ].map(({ to, label }) => {
+                  const active =
+                    to === '/'
+                      ? location.pathname === '/' || location.pathname === '/draws' || location.pathname === '/win-to-support'
+                      : location.pathname === to;
+                  return (
+                    <Link
+                      key={to}
+                      to={to}
+                      className={`rounded-full px-3 py-1 text-xs font-bold transition ${
+                        active
+                          ? 'bg-brand-yellow text-brand-dark'
+                          : 'text-white/80 hover:text-brand-yellow'
+                      }`}
+                    >
+                      {label}
+                    </Link>
+                  );
+                })}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <a
+                  href={config.charityLinks.donationFormUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="hidden sm:inline-flex rounded-full bg-brand-yellow px-3 py-1 text-xs font-black text-brand-dark hover:brightness-110 transition"
+                >
+                  Donate
+                </a>
+                {user ? (
+                  <Link
+                    to="/profile"
+                    className="flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-white/10 text-xs font-black text-white transition hover:bg-white/20"
+                  >
+                    {user.firstName?.charAt(0) || 'U'}
+                  </Link>
+                ) : (
+                  <button
+                    onClick={() => login()}
+                    className="rounded-full border border-white/20 px-3 py-1 text-xs font-bold text-white/80 transition hover:text-brand-yellow"
+                  >
+                    Login
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
-          
+
           <main className="mx-auto w-full max-w-6xl flex-grow pb-8 md:px-4 md:py-6 animate-fadeIn">
             {children}
             <div className="mt-12 rounded-3xl border border-brand-dark/10 bg-white/80 p-1">

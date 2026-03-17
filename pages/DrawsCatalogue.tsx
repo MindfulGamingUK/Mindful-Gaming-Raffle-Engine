@@ -3,6 +3,7 @@ import { Raffle, RaffleType, RaffleStatus } from '../types';
 import { fetchActiveRaffles, getCachedActiveRaffles } from '../services/api';
 import { DrawCard } from '../components/DrawCard';
 import { PrizeVault } from '../components/PrizeVault';
+import { WishlistSection } from '../components/WishlistSection';
 import { getConfig } from '../utils/config';
 import { Button } from '../components/Button';
 
@@ -74,7 +75,7 @@ export const DrawsCatalogue: React.FC = () => {
             </div>
             <div className="rounded-[28px] border border-brand-dark/10 bg-brand-plum p-5 text-white">
               <p className="text-xs font-black uppercase tracking-[0.28em] text-brand-yellow">Entry range</p>
-              <p className="mt-3 text-lg font-bold">50p to £1 per ticket — all proceeds to the charity.</p>
+              <p className="mt-3 text-lg font-bold">50p to £2 per ticket — entry fees support Mindful Gaming UK.</p>
             </div>
           </div>
         </div>
@@ -183,6 +184,10 @@ export const DrawsCatalogue: React.FC = () => {
 
       <div className="rounded-[36px] border border-brand-dark/10 bg-white/80 px-5 py-8 shadow-[0_20px_80px_rgba(40,26,57,0.08)] sm:px-8" id="local-vault">
         <PrizeVault description="Every card below is part of the upcoming prize queue. Prizes go live in either the Lottery Draws or Prize Competitions tab once they are ready." />
+      </div>
+
+      <div className="rounded-[36px] border border-brand-plum/10 bg-white/60 px-5 py-8 shadow-[0_16px_60px_rgba(40,26,57,0.06)] sm:px-8">
+        <WishlistSection />
       </div>
     </div>
   );

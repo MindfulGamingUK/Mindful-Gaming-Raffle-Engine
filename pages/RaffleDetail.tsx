@@ -61,6 +61,30 @@ export const RaffleDetail: React.FC = () => {
   // Image State
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const config = getConfig();
+  const totalCost = quantity * (raffle?.ticketPrice || 0);
+
+  const continueAuthenticatedFlow = (profile: typeof user) => {
+    if (profile?.dob) setDobInput(profile.dob);
+    if (profile?.residencyConfirmed) setResidencyChecked(true);
+
+    const eligible = !!(
+      profile?.dob &&
+      isOver18(profile.dob) &&
+      profile.residencyConfirmed === true
+    );
+
+    if (!eligible) {
+      setStep('PROFILE_GATE');
+      return;
+    }
+
+    if (raffle?.drawType === RaffleType.PRIZE_COMPETITION) {
+      setStep('CART');
+      return;
+    }
+
+    setStep('MINDFUL');
+  };
 
   useEffect(() => {
     if (!slug) return;
@@ -92,18 +116,21 @@ export const RaffleDetail: React.FC = () => {
     }
   }, [user]);
 
-  const handleStartEntry = () => {
+  const handleStartEntry = async () => {
+    setErrorMsg('');
+
     if (!user) {
-      login();
+      const loggedInUser = await login();
+      if (!loggedInUser) {
+        setErrorMsg('Login did not complete. Please try again or use the site login button.');
+        return;
+      }
+
+      continueAuthenticatedFlow(loggedInUser);
       return;
     }
 
-    // UX Polish: Auto-skip gate if already eligible
-    if (isEligible) {
-      setStep('MINDFUL');
-    } else {
-      setStep('PROFILE_GATE');
-    }
+    continueAuthenticatedFlow(user);
   };
 
   // Validate guest form fields, then advance to quantity/payment steps.
@@ -200,7 +227,8 @@ export const RaffleDetail: React.FC = () => {
       if (paymentUrl.startsWith('/')) {
         navigate(paymentUrl);
       } else {
-        window.location.href = paymentUrl;
+        // Stripe/PayPal must break out of the Wix iframe.
+        (window.top ?? window).location.href = paymentUrl;
       }
     } catch (e: any) {
       setPaymentError(e.message || 'Payment initiation failed. Please try again.');
@@ -223,11 +251,14 @@ export const RaffleDetail: React.FC = () => {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
-      {/* Breadcrumbs */}
-      <div className="mb-6 text-sm text-gray-500 flex items-center gap-2">
-        <button onClick={() => navigate('/draws')} className="hover:text-brand-purple">Draws</button>
-        <span>/</span>
-        <span className="text-gray-900 font-medium truncate max-w-xs">{raffle.title}</span>
+      {/* Back link */}
+      <div className="mb-6">
+        <button
+          onClick={() => navigate(-1)}
+          className="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-500 transition hover:text-brand-plum"
+        >
+          <span aria-hidden>&#8592;</span> Back to all draws
+        </button>
       </div>
 
       <div className="grid lg:grid-cols-12 gap-12">
@@ -327,6 +358,46 @@ export const RaffleDetail: React.FC = () => {
         <div className="lg:col-span-5">
           <div className="bg-white/95 border border-brand-dark/10 shadow-[0_30px_80px_rgba(40,26,57,0.12)] rounded-[28px] p-6 lg:p-8 sticky top-24">
 
+            {/* Draw type + status */}
+            <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+              <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.24em] text-white ${raffle.drawType === RaffleType.PRIZE_COMPETITION ? 'bg-brand-green' : 'bg-brand-plum'}`}>
+                {raffle.drawType === RaffleType.PRIZE_COMPETITION ? 'Prize Competition' : 'Lottery Draw'}
+              </span>
+              <span className={`rounded-full px-3 py-1 text-xs font-bold ${isClosed ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                {isClosed ? 'Closed' : 'Open'}
+              </span>
+            </div>
+
+            {/* Date timeline */}
+            {(raffle.openDate || raffle.closeDate || raffle.drawDate) && (
+              <div className="mb-4 rounded-xl border border-brand-dark/10 bg-brand-mist/60 px-4 py-3 grid grid-cols-3 gap-2 text-center text-xs">
+                {raffle.openDate && (
+                  <div>
+                    <p className="font-bold text-slate-400 uppercase tracking-wide text-[9px] mb-0.5">Opens</p>
+                    <p className="font-semibold text-brand-plum">
+                      {new Date(raffle.openDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                    </p>
+                  </div>
+                )}
+                {raffle.closeDate && (
+                  <div>
+                    <p className="font-bold text-slate-400 uppercase tracking-wide text-[9px] mb-0.5">Closes</p>
+                    <p className="font-semibold text-brand-plum">
+                      {new Date(raffle.closeDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                    </p>
+                  </div>
+                )}
+                {raffle.drawDate && (
+                  <div>
+                    <p className="font-bold text-slate-400 uppercase tracking-wide text-[9px] mb-0.5">Draw</p>
+                    <p className="font-semibold text-brand-plum">
+                      {new Date(raffle.drawDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="flex justify-between items-start mb-6 border-b border-gray-100 pb-6">
               <div>
                 <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Price per Entry</p>
@@ -334,11 +405,6 @@ export const RaffleDetail: React.FC = () => {
                 {raffle.drawType === RaffleType.PRIZE_COMPETITION && (
                   <p className="text-[10px] text-brand-green font-bold uppercase mt-1">Skill Question Required</p>
                 )}
-              </div>
-              <div className="text-right">
-                <span className={`inline-block px-3 py-1 rounded text-xs font-bold ${isClosed ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-                  {raffle.status}
-                </span>
               </div>
             </div>
 
@@ -406,6 +472,8 @@ export const RaffleDetail: React.FC = () => {
                         Continue as Guest
                       </button>
                     )}
+
+                    {errorMsg && <div className="text-red-600 text-xs bg-red-50 p-3 rounded-xl border border-red-100">{errorMsg}</div>}
                   </div>
                 )}
 
@@ -617,7 +685,7 @@ export const RaffleDetail: React.FC = () => {
                 {/* 7. PAYMENT */}
                 {step === 'PAYMENT' && (
                   <div className="animate-fadeIn space-y-4">
-                    <h3 className="font-bold text-gray-900 mb-2">Confirm &amp; Pay</h3>
+                    <h3 className="font-bold text-gray-900 mb-2">{totalCost === 0 ? 'Confirm Free Entry' : 'Confirm &amp; Pay'}</h3>
                     {paymentError && (
                       <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 leading-relaxed">
                         {paymentError}
@@ -665,7 +733,7 @@ export const RaffleDetail: React.FC = () => {
                     </div>
                     {isGuestFlow ? (
                       <button onClick={handleGuestPayment} disabled={submitting} className="w-full bg-[#635BFF] text-white py-3.5 rounded-lg font-bold hover:bg-[#534be0] transition flex justify-center items-center gap-2 shadow-sm">
-                        <span>{submitting ? 'Processing…' : 'Pay by Card (Guest)'}</span>
+                        <span>{submitting ? 'Processing…' : totalCost === 0 ? 'Complete Free Entry' : 'Pay by Card (Guest)'}</span>
                       </button>
                     ) : (
                       <>

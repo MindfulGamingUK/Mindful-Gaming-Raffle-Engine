@@ -1,25 +1,36 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { RaffleType } from '../types';
 import { fetchWinners, PublicWinner } from '../services/api';
-import { Button } from '../components/Button';
-import { TrustStack } from '../components/TrustStack';
+
+type WinnerTab = 'ALL' | 'LOTTERY' | 'COMPETITION';
+
+const DRAW_TYPE_LABEL: Record<string, string> = {
+  LOTTERY_RAFFLE: 'Lottery Draw',
+  PRIZE_COMPETITION: 'Prize Competition',
+};
+
+const DRAW_TYPE_BADGE: Record<string, string> = {
+  LOTTERY_RAFFLE: 'bg-brand-plum text-white',
+  PRIZE_COMPETITION: 'bg-brand-green text-white',
+};
 
 const STATUS_LABEL: Record<PublicWinner['status'], string> = {
   PRIZE_DISPATCHED: 'Prize Dispatched',
-  CLAIMED:          'Claimed',
-  PENDING:          'Pending',
+  CLAIMED: 'Claimed',
+  PENDING: 'Pending',
 };
 
 const STATUS_STYLE: Record<PublicWinner['status'], string> = {
-  PRIZE_DISPATCHED: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  CLAIMED:          'bg-blue-50 text-blue-700 border-blue-200',
-  PENDING:          'bg-amber-50 text-amber-700 border-amber-200',
+  PRIZE_DISPATCHED: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+  CLAIMED: 'bg-blue-50 text-blue-700 border border-blue-200',
+  PENDING: 'bg-amber-50 text-amber-700 border border-amber-200',
 };
 
 export const Winners: React.FC = () => {
   const [winners, setWinners] = useState<PublicWinner[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<WinnerTab>('ALL');
 
   useEffect(() => {
     fetchWinners()
@@ -27,99 +38,205 @@ export const Winners: React.FC = () => {
       .finally(() => setLoading(false));
   }, []);
 
-  return (
-    <div className="max-w-4xl mx-auto px-4 py-10 animate-fadeIn">
+  const lotteryWinners = useMemo(
+    () => winners.filter((w) => w.drawType === RaffleType.LOTTERY_RAFFLE),
+    [winners]
+  );
 
-      {/* Header */}
-      <div className="mb-10 space-y-4">
-        <div>
-          <h1 className="text-3xl md:text-4xl font-bold text-brand-dark tracking-tight">Past Winners</h1>
-          <p className="text-gray-500 mt-2">
-            Verified draw results, published with winner consent. Every draw is conducted by cryptographic RNG and independently auditable.
-          </p>
-        </div>
-        <TrustStack variant="horizontal" compact />
+  const competitionWinners = useMemo(
+    () => winners.filter((w) => w.drawType === RaffleType.PRIZE_COMPETITION),
+    [winners]
+  );
+
+  const visible =
+    activeTab === 'ALL'
+      ? winners
+      : activeTab === 'LOTTERY'
+      ? lotteryWinners
+      : competitionWinners;
+
+  const showLotteryTab = lotteryWinners.length > 0;
+  const showCompetitionTab = competitionWinners.length > 0;
+
+  return (
+    <div className="max-w-4xl mx-auto px-4 py-10 animate-fadeIn space-y-10">
+
+      {/* Page header */}
+      <div className="space-y-3">
+        <p className="text-xs font-black uppercase tracking-[0.32em] text-brand-green">Results</p>
+        <h1 className="text-3xl font-black tracking-tight text-brand-plum sm:text-4xl">
+          Published Draw Results
+        </h1>
+        <p className="max-w-2xl text-sm leading-7 text-slate-600">
+          All draw results are published here once the winner has been contacted and has consented to their name
+          appearing publicly. Draws are conducted using a cryptographic random number generator and the full audit
+          log is available on request.
+        </p>
       </div>
 
-      {/* Winners list */}
-      {loading ? (
-        <div className="space-y-4">
-          {[1, 2, 3].map(i => (
-            <div key={i} className="bg-white rounded-2xl border border-gray-100 h-24 animate-pulse" />
+      {/* Tab bar — only show category tabs when there are winners in each */}
+      {winners.length > 0 && (showLotteryTab || showCompetitionTab) && (
+        <div className="inline-flex rounded-full border border-brand-dark/10 bg-brand-mist p-1">
+          <button
+            type="button"
+            onClick={() => setActiveTab('ALL')}
+            className={`rounded-full px-5 py-2 text-sm font-bold transition ${
+              activeTab === 'ALL'
+                ? 'bg-brand-plum text-white shadow'
+                : 'text-slate-600 hover:text-brand-plum'
+            }`}
+          >
+            All ({winners.length})
+          </button>
+          {showLotteryTab && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('LOTTERY')}
+              className={`rounded-full px-5 py-2 text-sm font-bold transition ${
+                activeTab === 'LOTTERY'
+                  ? 'bg-brand-plum text-white shadow'
+                  : 'text-slate-600 hover:text-brand-plum'
+              }`}
+            >
+              Lottery ({lotteryWinners.length})
+            </button>
+          )}
+          {showCompetitionTab && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('COMPETITION')}
+              className={`rounded-full px-5 py-2 text-sm font-bold transition ${
+                activeTab === 'COMPETITION'
+                  ? 'bg-brand-green text-white shadow'
+                  : 'text-slate-600 hover:text-brand-green'
+              }`}
+            >
+              Competitions ({competitionWinners.length})
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Loading state */}
+      {loading && (
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <div
+              key={i}
+              className="h-20 rounded-[20px] border border-brand-dark/10 bg-white/70 animate-pulse"
+            />
           ))}
         </div>
-      ) : winners.length === 0 ? (
-        <div className="py-24 text-center border-2 border-dashed border-gray-100 rounded-3xl">
-          <p className="text-5xl mb-4">🏆</p>
-          <p className="text-gray-700 font-bold text-lg">No completed draws yet</p>
-          <p className="text-gray-400 text-sm mt-2 mb-6">
-            Our first draw is launching soon. Enter now for your chance to win.
+      )}
+
+      {/* Empty state */}
+      {!loading && winners.length === 0 && (
+        <div className="rounded-[28px] border border-dashed border-brand-dark/10 bg-white/80 px-6 py-20 text-center">
+          <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-brand-mist text-brand-plum">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/>
+            </svg>
+          </div>
+          <h2 className="text-lg font-black text-brand-plum">No results published yet</h2>
+          <p className="mt-3 max-w-md mx-auto text-sm leading-6 text-slate-600">
+            Draws take place on their published draw dates. Results are posted here once the winner has
+            been contacted. Our live draws close on 28 March 2026 with the draw taking place on 31 March 2026.
           </p>
-          <Link to="/draws">
-            <Button>View Live Draws</Button>
-          </Link>
+          <div className="mt-6">
+            <Link
+              to="/"
+              className="inline-flex rounded-full bg-brand-plum px-6 py-2.5 text-sm font-bold text-white transition hover:bg-brand-plum/90"
+            >
+              View Live Draws
+            </Link>
+          </div>
         </div>
-      ) : (
-        <div className="space-y-4">
-          {winners.map(w => {
-            const isComp = w.drawType === RaffleType.PRIZE_COMPETITION;
-            return (
-              <div key={w._id} className="bg-white rounded-2xl border border-gray-100 p-5 flex flex-col sm:flex-row sm:items-center gap-4 hover:shadow-md transition-shadow">
-                {/* Type badge */}
+      )}
+
+      {/* Winners list */}
+      {!loading && visible.length > 0 && (
+        <div className="space-y-3">
+          {visible.map((w) => (
+            <div
+              key={w._id}
+              className="overflow-hidden rounded-[20px] border border-brand-dark/10 bg-white/90 shadow-[0_4px_20px_rgba(40,26,57,0.06)]"
+            >
+              <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
+                {/* Draw type badge */}
                 <div className="shrink-0">
-                  <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-widest ${isComp ? 'bg-brand-teal text-white' : 'bg-brand-purple text-white'}`}>
-                    {isComp ? '🧠 Competition' : '🎰 Lottery'}
+                  <span
+                    className={`inline-block rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.24em] ${
+                      DRAW_TYPE_BADGE[w.drawType] ?? 'bg-slate-200 text-slate-700'
+                    }`}
+                  >
+                    {DRAW_TYPE_LABEL[w.drawType] ?? w.drawType}
                   </span>
                 </div>
 
                 {/* Draw info */}
                 <div className="flex-grow">
-                  <p className="font-semibold text-gray-900 leading-snug">{w.raffleTitle}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    Draw date: {new Date(w.drawDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
+                  <p className="font-bold text-brand-plum leading-snug">{w.raffleTitle}</p>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    Draw date:{' '}
+                    {new Date(w.drawDate).toLocaleDateString('en-GB', {
+                      day: 'numeric',
+                      month: 'long',
+                      year: 'numeric',
+                    })}
                   </p>
                 </div>
 
-                {/* Ticket */}
-                <div className="text-center shrink-0">
-                  <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold mb-0.5">Winning Ticket</p>
-                  <p className="font-mono font-bold text-gray-900">{w.winningTicketDisplay}</p>
+                {/* Winning ticket */}
+                <div className="shrink-0 text-center">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
+                    Winning Ticket
+                  </p>
+                  <p className="mt-0.5 font-mono font-bold text-brand-plum">{w.winningTicketDisplay}</p>
                 </div>
 
-                {/* Winner */}
-                <div className="text-center shrink-0 min-w-[120px]">
-                  <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold mb-0.5">Winner</p>
-                  <p className="text-sm font-semibold text-gray-700">
-                    {w.winnerPublicLabel ?? <span className="text-gray-400 italic">— private</span>}
+                {/* Winner label */}
+                <div className="shrink-0 min-w-[120px] text-center">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">Winner</p>
+                  <p className="mt-0.5 text-sm font-semibold text-slate-700">
+                    {w.winnerPublicLabel ?? (
+                      <span className="italic text-slate-400">Withheld</span>
+                    )}
                   </p>
                 </div>
 
-                {/* Status */}
+                {/* Dispatch status */}
                 <div className="shrink-0">
-                  <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${STATUS_STYLE[w.status]}`}>
+                  <span
+                    className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${STATUS_STYLE[w.status]}`}
+                  >
                     {STATUS_LABEL[w.status]}
                   </span>
                 </div>
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
       )}
 
       {/* Verification CTA */}
-      <div className="mt-12 bg-brand-mist rounded-2xl p-8 text-center space-y-3 border border-brand-dark/10">
-        <p className="font-semibold text-gray-900">Need to verify a result?</p>
-        <p className="text-sm text-gray-500 max-w-md mx-auto">
-          Full winner records and audit logs are available on request. All draws use cryptographic RNG with a tamper-evident audit log retained by the platform.
+      <div className="rounded-[28px] border border-brand-dark/10 bg-brand-mist/70 px-6 py-8 text-center space-y-3">
+        <h3 className="font-bold text-brand-plum">Need to verify a result?</h3>
+        <p className="max-w-md mx-auto text-sm text-slate-600 leading-6">
+          The full winner record and audit log for any completed draw is available on request. Contact us
+          with the draw name and your query.
         </p>
-        <a href="mailto:info@mindfulgaminguk.org?subject=Winner%20verification%20request">
-          <Button variant="secondary" className="mt-2">Request Full Winners List</Button>
+        <a
+          href="mailto:info@mindfulgaminguk.org?subject=Winner%20verification%20request"
+          className="inline-flex rounded-full border border-brand-plum px-5 py-2 text-sm font-bold text-brand-plum transition hover:bg-brand-plum hover:text-white"
+        >
+          Request Verification
         </a>
       </div>
 
-      {/* Reg note */}
-      <p className="text-center text-xs text-gray-400 mt-8">
-        Small Society Lottery registered with Birmingham City Council (Ref: 213653). Returns filed within 3 months of each draw.
+      {/* Compliance footer */}
+      <p className="text-center text-xs text-slate-400 leading-5">
+        Draws conducted under UK Gambling Act 2005. Registered with Birmingham City Council, Reg.&nbsp;213653.
+        LAA5 returns filed within 3 months of each draw date.
       </p>
     </div>
   );

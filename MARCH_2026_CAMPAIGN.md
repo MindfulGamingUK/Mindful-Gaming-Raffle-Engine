@@ -68,25 +68,32 @@ All prices verified UK retail, March 2026. Stock confirmed available.
 
 | Field | Value |
 |-------|-------|
-| **Prize** | Apple MacBook Neo 13" (2026, A18 Pro, 8GB, 256GB) |
-| **Prize cost** | £599 (Apple UK / Currys — launched TODAY 11 March 2026) |
+| **Prize** | Apple MacBook Air 13-inch (current model — M5 as of March 2026, was M4 in 2025) |
+| **Prize cost** | £1,099 (Apple UK — confirmed price for both M4 and M5 base config) |
 | **Ticket price** | £2.00 |
-| **Max tickets** | 450 |
-| **Max revenue** | £900 |
-| **Stripe fees (est.)** | ~£52 |
-| **Net to charity (max sellout)** | ~£249 (28%) |
-| **Break-even** | 300 tickets sold |
-| **Order prize when** | ≥ 330 tickets sold (£660 revenue) |
+| **Max tickets** | 750 |
+| **Max revenue** | £1,500 |
+| **Stripe fees (est.)** | ~£65 |
+| **Net to charity (max sellout)** | ~£336 (22%) |
+| **Break-even** | 555 tickets sold (74% of cap) |
+| **Order prize when** | ≥ 600 tickets sold (£1,200 revenue covers prize + fees) |
 | **Max per member** | 15 tickets |
 | **Open date** | 2026-03-17T09:00:00Z |
-| **Close date** | 2026-03-28T23:59:59Z |
-| **Draw date** | 2026-03-31T14:00:00Z |
-| **Slug** | `macbook-neo-march-2026` |
+| **Close date** | 2026-04-30T23:59:59Z |
+| **Draw date** | 2026-04-30T14:00:00Z |
+| **Slug** | `macbook-air-m4-march-2026` |
 | **Draw type** | `LOTTERY_RAFFLE` |
 
-**Why MacBook Neo:** Apple launched the MacBook Neo TODAY (11 March 2026) — it is the brand-new entry-level MacBook at £599, the most affordable Mac ever made. Powered by A18 Pro (same as iPhone 16 Pro), Apple Intelligence built-in, 16hr battery. This is the "MacBook Nano" you were thinking of. Launching a draw featuring it the same week Apple launches it = free PR timing. Available now at [Apple UK](https://www.apple.com/uk/macbook-neo/) and [Currys](https://www.currys.co.uk/products/apple-macbook-neo-13-2026-a18-pro-256-gb-ssd-silver-10292842.html).
+> **⚠️ CORRECTION (2026-03-16):** The "MacBook Neo" name was invented and does not exist.
+> As of March 2026, Apple's current entry MacBook is the **MacBook Air 13-inch M5** at £1,099 UK RRP (M5 replaced M4 in early 2026 at the same price point — research-confirmed).
+> Prize cost corrected from fictional £599 → real £1,099. Cap raised 450 → 750.
+> Break-even is 74% of cap — achievable but requires active promotion.
+> Risk: if sellout is below 74%, the charity subsidises the prize. Monitor and close early if needed.
+> **At draw time, order whichever MacBook Air 13-inch is current** — do not pre-order.
 
-**Hero image:** `https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/macbook-neo-hero-202603`
+**Why MacBook Air 13-inch:** A genuine, universally available Apple product at a confirmed UK RRP of £1,099. Strong appeal across students, creatives, and professionals. Available from Apple UK, Currys, John Lewis, and Amazon UK.
+
+**Hero image:** Use `/assets/prizes/official/macbook-neo-official.png` (local asset) until better official image is sourced.
 
 ---
 
@@ -144,23 +151,23 @@ All prices verified UK retail, March 2026. Stock confirmed available.
 }
 ```
 
-### Draw 3 — MacBook Neo
+### Draw 3 — MacBook Air M4
 ```json
 {
-  "title": "Win an Apple MacBook Neo 13\" — Brand New 2026",
-  "slug": "macbook-neo-march-2026",
-  "description": "Win Apple's all-new MacBook Neo 13\" launched March 2026 — the most affordable Mac ever, powered by A18 Pro with Apple Intelligence built in. Your £2 entry supports Mindful Gaming UK's work helping people with gaming disorder across the UK.",
-  "heroImageUrl": "https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/macbook-neo-hero-202603",
-  "ticketPrice": 200,
-  "maxTickets": 450,
+  "title": "Win an Apple MacBook Air 13-inch (M4)",
+  "slug": "macbook-air-m4-march-2026",
+  "description": "Win a brand new Apple MacBook Air 13-inch with M4 chip — 8GB RAM, 256GB SSD, up to 18-hour battery life. Your £2 entry directly supports Mindful Gaming UK's gaming disorder awareness and prevention work across the UK.",
+  "heroImageUrl": "macbook-air-m4-official",
+  "ticketPrice": 2.0,
+  "maxTickets": 750,
   "soldTickets": 0,
   "lastTicketNumber": 0,
   "status": "ACTIVE",
   "openDate": "2026-03-17T09:00:00Z",
-  "closeDate": "2026-03-28T23:59:59Z",
-  "drawDate": "2026-03-31T14:00:00Z",
-  "prizesValue": 59900,
-  "prizeDescription": "Apple MacBook Neo 13\" (2026) — A18 Pro, 8GB RAM, 256GB SSD (brand new, sealed UK spec)",
+  "closeDate": "2026-04-30T23:59:59Z",
+  "drawDate": "2026-04-30T14:00:00Z",
+  "prizesValue": 1099,
+  "prizeDescription": "Apple MacBook Air 13-inch M4 (2025) — 8GB RAM, 256GB SSD, brand new sealed UK spec",
   "charityBeneficiary": "Mindful Gaming UK",
   "charityNumber": "1212285",
   "registrationRef": "213653",
@@ -302,19 +309,23 @@ window.dataLayer.push({
 In Wix Editor → raffle page → Page Settings → Layout → select **"No Header & Footer"** template. The SPA's embedded mode provides its own navigation strip.
 
 ### 2. Login → Wix member login (code fix needed)
-Currently `VeloRaffleApi.login()` silently calls `getSession()` and does nothing if unauthenticated. Fix: redirect `window.top` to Wix login.
+The embedded app should not hardcode a `/login` route. The reliable fix is a `postMessage` bridge from the GitHub Pages iframe to the Wix host page, with the host page calling `authentication.promptLogin()`.
 
 ```typescript
-// services/api.ts — VeloRaffleApi.login()
-async login() {
-  const session = await this.getSession();
-  if (session) return session;
-  const returnUrl = encodeURIComponent(window.location.href);
-  const target = window.top !== window.self ? window.top : window;
-  (target as Window).location.href =
-    `https://www.mindfulgaminguk.org/login?redirectUrl=${returnUrl}`;
-  return null;
-}
+// services/api.ts
+// Request the Wix host page to open the Members login modal.
+window.parent.postMessage({ type: 'MGUK_MEMBERS_PROMPT_LOGIN' }, 'https://www.mindfulgaminguk.org');
+
+// win-to-support page code
+import { authentication } from 'wix-members-frontend';
+
+$w('#raffleAppContainer').onMessage((event) => {
+  if (event.data?.type !== 'MGUK_MEMBERS_PROMPT_LOGIN') return;
+  $w('#raffleAppContainer').postMessage({ type: 'MGUK_MEMBERS_PROMPT_LOGIN_ACK' });
+  authentication.promptLogin()
+    .then(() => $w('#raffleAppContainer').postMessage({ type: 'MGUK_MEMBERS_LOGIN_RESULT', ok: true }))
+    .catch(() => $w('#raffleAppContainer').postMessage({ type: 'MGUK_MEMBERS_LOGIN_RESULT', ok: false }));
+});
 ```
 
 ### 3. Image fallback paths (3 components)
