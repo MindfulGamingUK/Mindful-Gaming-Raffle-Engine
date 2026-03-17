@@ -149,6 +149,11 @@ function response(statusFn, body, request) {
     });
 }
 
+// Wix/Velo may lowercase HTTP headers — read both casing variants.
+function getAuthHeader(request) {
+    return request.headers?.['Authorization'] || request.headers?.['authorization'] || '';
+}
+
 export function options_session(request) { return response(ok, {}, request); }
 export function options_rafflesActive(request) { return response(ok, {}, request); }
 export function options_raffleBySlug(request) { return response(ok, {}, request); }
@@ -939,7 +944,7 @@ export async function post_awarenessEvent(request) {
 export async function post_admin_retryMint(request) {
     try {
         const secret = await wixSecretsBackend.getSecret('ADMIN_SECRET');
-        if (!timingSafeEqualHex(request.headers['Authorization'] || '', `Bearer ${secret}`)) return response(forbidden, { error: "Unauthorized" }, request);
+        if (!timingSafeEqualHex(getAuthHeader(request), `Bearer ${secret}`)) return response(forbidden, { error: "Unauthorized" }, request);
 
         const { providerEventId } = await request.body.json();
         const ledger = await wixData.get(COLLECTIONS.PAYMENTS, `ledger_${providerEventId}`, { suppressAuth: true });
@@ -966,7 +971,7 @@ export function options_admin_exportReturn(request) { return response(ok, {}, re
 export async function post_admin_executeDraw(request) {
     try {
         const secret = await wixSecretsBackend.getSecret('ADMIN_SECRET');
-        if (!timingSafeEqualHex(request.headers['Authorization'] || '', `Bearer ${secret}`)) return response(forbidden, { error: "Unauthorized" }, request);
+        if (!timingSafeEqualHex(getAuthHeader(request), `Bearer ${secret}`)) return response(forbidden, { error: "Unauthorized" }, request);
 
         const { raffleId } = await request.body.json();
         if (!raffleId) return response(badRequest, { error: "Missing raffleId" }, request);
@@ -982,7 +987,7 @@ export async function post_admin_executeDraw(request) {
 export async function post_admin_exportReturn(request) {
     try {
         const secret = await wixSecretsBackend.getSecret('ADMIN_SECRET');
-        if (!timingSafeEqualHex(request.headers['Authorization'] || '', `Bearer ${secret}`)) return response(forbidden, { error: "Unauthorized" }, request);
+        if (!timingSafeEqualHex(getAuthHeader(request), `Bearer ${secret}`)) return response(forbidden, { error: "Unauthorized" }, request);
 
         const { raffleId } = await request.body.json();
         if (!raffleId) return response(badRequest, { error: "Missing raffleId" }, request);
@@ -998,7 +1003,7 @@ export async function post_admin_exportReturn(request) {
 export async function post_admin_cleanup(request) {
     try {
         const secret = await wixSecretsBackend.getSecret('ADMIN_SECRET');
-        if (!timingSafeEqualHex(request.headers['Authorization'] || '', `Bearer ${secret}`)) return response(forbidden, { error: "Unauthorized" }, request);
+        if (!timingSafeEqualHex(getAuthHeader(request), `Bearer ${secret}`)) return response(forbidden, { error: "Unauthorized" }, request);
 
         const now = new Date();
         const retentionDays = 30; // Configurable
@@ -1103,7 +1108,7 @@ export async function post_admin_simulateMint(request) {
             wixSecretsBackend.getSecret('ADMIN_SECRET'),
             wixSecretsBackend.getSecret('QA_SIM_KEY').catch(() => null)
         ]);
-        const authHeader = request.headers['Authorization'] || '';
+        const authHeader = getAuthHeader(request);
         const isAdmin = timingSafeEqualHex(authHeader, `Bearer ${adminSecret}`);
         const isQa = qaSimKey && timingSafeEqualHex(authHeader, `Bearer ${qaSimKey}`);
         if (!isAdmin && !isQa) {
