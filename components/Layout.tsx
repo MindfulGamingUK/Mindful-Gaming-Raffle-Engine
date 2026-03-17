@@ -12,6 +12,28 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   const { user, login, logout } = useAuth();
   const config = getConfig();
   const showDevWarning = isUsingDefaultConfig() && process.env.NODE_ENV !== 'production';
+  const [loginLoading, setLoginLoading] = React.useState(false);
+  const [loginError, setLoginError] = React.useState<string | null>(null);
+
+  const handleLogin = async () => {
+    setLoginLoading(true);
+    setLoginError(null);
+    try {
+      await login();
+    } catch (err: any) {
+      const msg = err?.message || 'Login failed';
+      // Bridge not configured = Wix page code isn't pasted yet
+      if (msg.includes('bridge')) {
+        setLoginError('Login is only available from the Mindful Gaming website.');
+      } else if (msg.includes('cancelled') || msg.includes('complete')) {
+        // user closed the modal — silent
+      } else {
+        setLoginError('Login failed. Please try again.');
+      }
+    } finally {
+      setLoginLoading(false);
+    }
+  };
 
   const navItems = [
     { to: '/draws', label: 'Prize Vault' },
@@ -66,8 +88,8 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
               <span className="text-xs font-bold">{user.firstName?.charAt(0) || 'U'}</span>
             </Link>
           ) : (
-            <button onClick={() => login()} className="text-sm font-bold text-brand-yellow hover:text-white">
-              Login
+            <button onClick={handleLogin} disabled={loginLoading} className="text-sm font-bold text-brand-yellow hover:text-white disabled:opacity-50">
+              {loginLoading ? '…' : 'Login'}
             </button>
           )}
         </div>
@@ -142,16 +164,14 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
 
       {shellMode === 'EMBEDDED' ? (
         <div className="flex min-h-[50vh] flex-col bg-transparent font-sans text-gray-900">
-          {/* Embedded nav — visible on ALL screen sizes */}
-          <div className="sticky top-0 z-40 border-b border-brand-orange/40 bg-brand-plum/95 text-white backdrop-blur">
-            <div className="h-[3px] w-full bg-gradient-to-r from-brand-orange via-brand-yellow to-brand-green" />
-            <div className="flex items-center justify-between px-4 py-2.5 sm:px-5">
-              <Link to="/" className="flex items-center gap-2 text-sm font-black tracking-[0.22em] text-brand-yellow">
-                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-yellow text-brand-dark text-xs font-black">MG</span>
-                <span className="hidden xs:inline">MGUK</span>
+          {/* Embedded nav — compact single-bar; avoids double sticky-header with Wix shell */}
+          <div className="sticky top-0 z-40 border-b border-brand-orange/30 bg-brand-plum/97 text-white backdrop-blur">
+            <div className="flex items-center justify-between px-3 py-1.5 sm:px-4">
+              <Link to="/" className="flex items-center gap-1.5 text-xs font-black tracking-[0.18em] text-brand-yellow">
+                <span className="flex h-6 w-6 items-center justify-center rounded-md bg-brand-yellow text-brand-dark text-[10px] font-black">MG</span>
               </Link>
 
-              <div className="flex items-center gap-1 sm:gap-2">
+              <div className="flex items-center gap-0.5 sm:gap-1">
                 {[
                   { to: '/', label: 'Draws' },
                   { to: '/winners', label: 'Winners' },
@@ -165,10 +185,10 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                     <Link
                       key={to}
                       to={to}
-                      className={`rounded-full px-3 py-1 text-xs font-bold transition ${
+                      className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold transition ${
                         active
                           ? 'bg-brand-yellow text-brand-dark'
-                          : 'text-white/80 hover:text-brand-yellow'
+                          : 'text-white/75 hover:text-brand-yellow'
                       }`}
                     >
                       {label}
@@ -177,32 +197,36 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                 })}
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
                 <a
                   href={config.charityLinks.donationFormUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="hidden sm:inline-flex rounded-full bg-brand-yellow px-3 py-1 text-xs font-black text-brand-dark hover:brightness-110 transition"
+                  className="hidden sm:inline-flex rounded-full bg-brand-yellow px-2.5 py-0.5 text-[11px] font-black text-brand-dark hover:brightness-110 transition"
                 >
                   Donate
                 </a>
                 {user ? (
                   <Link
                     to="/profile"
-                    className="flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-white/10 text-xs font-black text-white transition hover:bg-white/20"
+                    className="flex h-6 w-6 items-center justify-center rounded-full border border-white/20 bg-white/10 text-[10px] font-black text-white transition hover:bg-white/20"
                   >
                     {user.firstName?.charAt(0) || 'U'}
                   </Link>
                 ) : (
                   <button
-                    onClick={() => login()}
-                    className="rounded-full border border-white/20 px-3 py-1 text-xs font-bold text-white/80 transition hover:text-brand-yellow"
+                    onClick={handleLogin}
+                    disabled={loginLoading}
+                    className="rounded-full border border-white/20 px-2.5 py-0.5 text-[11px] font-bold text-white/75 transition hover:text-brand-yellow disabled:opacity-50"
                   >
-                    Login
+                    {loginLoading ? '…' : 'Login'}
                   </button>
                 )}
               </div>
             </div>
+            {loginError && (
+              <p className="bg-red-900/80 px-4 py-1 text-center text-[11px] text-red-200">{loginError}</p>
+            )}
           </div>
 
           <main className="mx-auto w-full max-w-6xl flex-grow pb-8 md:px-4 md:py-6 animate-fadeIn">

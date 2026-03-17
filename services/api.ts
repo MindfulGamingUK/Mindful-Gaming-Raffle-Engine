@@ -39,7 +39,14 @@ const isEmbeddedInIframe = (): boolean => {
 
 const wait = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
-const requestLoginBridgeAckOnce = (timeoutMs = 1200): Promise<boolean> => {
+// Origins that can legitimately send bridge messages to this iframe.
+// Wix may proxy messages from editor.wix.com in preview mode.
+const TRUSTED_BRIDGE_ORIGINS = [WIX_SITE_ORIGIN, 'https://editor.wix.com', 'https://www.wix.com'];
+
+const isTrustedBridgeOrigin = (origin: string) =>
+  TRUSTED_BRIDGE_ORIGINS.includes(origin) || origin.endsWith('.wix.com');
+
+const requestLoginBridgeAckOnce = (timeoutMs = 3000): Promise<boolean> => {
   if (!isEmbeddedInIframe()) {
     return Promise.resolve(false);
   }
@@ -56,7 +63,7 @@ const requestLoginBridgeAckOnce = (timeoutMs = 1200): Promise<boolean> => {
     };
 
     const handleMessage = (event: MessageEvent) => {
-      if (event.origin !== WIX_SITE_ORIGIN) return;
+      if (!isTrustedBridgeOrigin(event.origin)) return;
       if (event.data?.type !== LOGIN_BRIDGE_ACK) return;
       cleanup(true);
     };
@@ -65,12 +72,14 @@ const requestLoginBridgeAckOnce = (timeoutMs = 1200): Promise<boolean> => {
     window.addEventListener('message', handleMessage);
 
     try {
+      // Use '*' as targetOrigin — Wix proxies iframe postMessage through its own
+      // internal frame, so the effective parent origin may differ from WIX_SITE_ORIGIN.
       window.parent.postMessage(
         {
           type: LOGIN_BRIDGE_REQUEST,
           returnUrl: WIX_RAFFLE_PAGE_URL
         },
-        WIX_SITE_ORIGIN
+        '*'
       );
     } catch {
       cleanup(false);
@@ -110,7 +119,7 @@ const waitForLoginBridgeResult = (timeoutMs = 120000): Promise<boolean> => {
     };
 
     const handleMessage = (event: MessageEvent) => {
-      if (event.origin !== WIX_SITE_ORIGIN) return;
+      if (!isTrustedBridgeOrigin(event.origin)) return;
       if (event.data?.type !== LOGIN_BRIDGE_RESULT) return;
       cleanup(Boolean(event.data?.ok));
     };

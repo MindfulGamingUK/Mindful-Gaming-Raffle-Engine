@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { Raffle, RaffleType, RaffleStatus } from '../types';
 import { Button } from './Button';
 import { PricePill } from './PricePill';
-import { calculateProgress, formatCurrency } from '../utils/formatting';
+import { calculateProgress, formatCurrency, formatUKDate } from '../utils/formatting';
 import { getAsset } from '../utils/assets';
 import { getConfig } from '../utils/config';
 import { getTheme } from '../utils/theme';
@@ -30,7 +30,7 @@ export const DrawCard: React.FC<DrawCardProps> = ({ raffle }) => {
   const isUpcoming = raffle.status === RaffleStatus.UPCOMING;
   const isNotYetOpen = raffle.openDate ? new Date() < new Date(raffle.openDate) : false;
   const liveLabel = isNotYetOpen
-    ? `Opens ${new Date(raffle.openDate!).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`
+    ? `Opens ${formatUKDate(raffle.openDate, { day: 'numeric', month: 'short' })}`
     : 'Live now';
 
   // Voting state for UPCOMING draws
@@ -131,7 +131,7 @@ export const DrawCard: React.FC<DrawCardProps> = ({ raffle }) => {
           <div className="absolute inset-0 bg-gradient-to-t from-brand-dark/75 via-brand-dark/10 to-transparent" />
           <div className="absolute left-5 top-5 flex flex-wrap gap-2">
             <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.28em] text-white shadow-lg ${isCompetition ? 'bg-brand-green' : 'bg-brand-plum'}`}>
-              {isCompetition ? 'Prize Competition' : 'Prize Draw'}
+              {isCompetition ? 'Prize Competition' : 'Lottery Draw'}
             </span>
             <span className={`rounded-full border border-white/30 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.24em] text-white backdrop-blur ${isNotYetOpen ? 'bg-slate-600/80' : 'bg-white/15'}`}>
               {liveLabel}
@@ -166,12 +166,12 @@ export const DrawCard: React.FC<DrawCardProps> = ({ raffle }) => {
           </div>
           {raffle.closeDate && (
             <p className="mb-1 text-xs font-semibold text-brand-plum/70">
-              Closes {new Date(raffle.closeDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+              Closes {formatUKDate(raffle.closeDate)}
             </p>
           )}
           {raffle.drawDate && (
             <p className="mb-2 text-xs text-slate-500">
-              Draw: {new Date(raffle.drawDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+              Draw: {formatUKDate(raffle.drawDate)}
             </p>
           )}
           <div className="h-2 overflow-hidden rounded-full bg-white">

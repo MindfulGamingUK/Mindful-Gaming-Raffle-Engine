@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Raffle, PaymentProvider, MindfulContent, RaffleStatus, AwarenessContent } from '../types';
 import { fetchRaffleBySlug, createEntryIntent, createGuestEntryIntent, fetchMindfulContent } from '../services/api';
 import { getAsset } from '../utils/assets';
-import { formatCurrency, calculateProgress, isOver18 } from '../utils/formatting';
+import { formatCurrency, calculateProgress, isOver18, formatUKDate } from '../utils/formatting';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from '../components/Button';
 import { TransparencyPanel } from '../components/TransparencyPanel';
@@ -246,7 +246,10 @@ export const RaffleDetail: React.FC = () => {
 
   if (!raffle) return <div className="p-12 text-center animate-pulse">Loading Raffle...</div>;
 
-  const isClosed = raffle.status === RaffleStatus.CLOSED || raffle.status === RaffleStatus.DRAWN || raffle.status === RaffleStatus.SOLD_OUT;
+  // A draw is closed if the CMS status says so, OR if the closeDate has already passed.
+  // This handles the case where the CMS hasn't been updated yet after the close window.
+  const isPastCloseDate = raffle.closeDate ? new Date() > new Date(raffle.closeDate) : false;
+  const isClosed = isPastCloseDate || raffle.status === RaffleStatus.CLOSED || raffle.status === RaffleStatus.DRAWN || raffle.status === RaffleStatus.SOLD_OUT;
   const usesContainFit = raffle.imageFit === 'contain';
 
   return (
@@ -277,7 +280,7 @@ export const RaffleDetail: React.FC = () => {
             />
             <div className="absolute top-4 left-4">
               <span className={`px-3 py-1 rounded-full text-xs font-bold shadow-md ${raffle.drawType === RaffleType.LOTTERY_RAFFLE ? 'bg-brand-purple text-white' : 'bg-brand-teal text-white'}`}>
-                {raffle.drawType === RaffleType.PRIZE_COMPETITION ? 'Prize Competition' : 'Prize Draw'}
+                {raffle.drawType === RaffleType.PRIZE_COMPETITION ? 'Prize Competition' : 'Lottery Draw'}
               </span>
             </div>
           </div>
@@ -375,7 +378,7 @@ export const RaffleDetail: React.FC = () => {
                   <div>
                     <p className="font-bold text-slate-400 uppercase tracking-wide text-[9px] mb-0.5">Opens</p>
                     <p className="font-semibold text-brand-plum">
-                      {new Date(raffle.openDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                      {formatUKDate(raffle.openDate, { day: 'numeric', month: 'short' })}
                     </p>
                   </div>
                 )}
@@ -383,7 +386,7 @@ export const RaffleDetail: React.FC = () => {
                   <div>
                     <p className="font-bold text-slate-400 uppercase tracking-wide text-[9px] mb-0.5">Closes</p>
                     <p className="font-semibold text-brand-plum">
-                      {new Date(raffle.closeDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                      {formatUKDate(raffle.closeDate, { day: 'numeric', month: 'short' })}
                     </p>
                   </div>
                 )}
@@ -391,7 +394,7 @@ export const RaffleDetail: React.FC = () => {
                   <div>
                     <p className="font-bold text-slate-400 uppercase tracking-wide text-[9px] mb-0.5">Draw</p>
                     <p className="font-semibold text-brand-plum">
-                      {new Date(raffle.drawDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                      {formatUKDate(raffle.drawDate, { day: 'numeric', month: 'short' })}
                     </p>
                   </div>
                 )}
