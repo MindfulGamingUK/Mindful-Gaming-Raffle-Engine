@@ -10,7 +10,7 @@
     />
     <meta name="robots" content="noindex,follow,max-image-preview:large" />
     <link rel="canonical" href="https://www.mindfulgaminguk.org/gaming-encyclopedia" />
-        <link rel="stylesheet" href="./mindful-gaming-raffle-engine.css?v=1776853032280" />
+        <link rel="stylesheet" href="./mindful-gaming-raffle-engine.css?v=1776854473930" />
     <style>
       :root {
         color-scheme: dark;
@@ -34,6 +34,47 @@
   </head>
   <body>
     <div id="root"></div>
-    <script src="./museum-standalone.js?v=1776853032280"></script>
+    <script>
+      (function () {
+        var lastHeight = 0;
+
+        function measureHeight() {
+          return Math.max(
+            document.body ? document.body.scrollHeight : 0,
+            document.documentElement ? document.documentElement.scrollHeight : 0,
+            document.getElementById('root') ? document.getElementById('root').scrollHeight : 0
+          );
+        }
+
+        function postHeight() {
+          var height = measureHeight();
+          if (!height || Math.abs(height - lastHeight) < 8) return;
+          lastHeight = height;
+          if (window.parent && window.parent !== window) {
+            window.parent.postMessage({ type: 'mguk-museum-height', height: height }, '*');
+          }
+        }
+
+        window.addEventListener('load', postHeight);
+        window.addEventListener('resize', postHeight);
+        window.addEventListener('hashchange', function () {
+          window.setTimeout(postHeight, 120);
+        });
+
+        if ('ResizeObserver' in window) {
+          new ResizeObserver(postHeight).observe(document.documentElement);
+        }
+
+        if ('MutationObserver' in window) {
+          new MutationObserver(function () {
+            window.requestAnimationFrame(postHeight);
+          }).observe(document.documentElement, { childList: true, subtree: true, attributes: true });
+        }
+
+        window.setTimeout(postHeight, 250);
+        window.setTimeout(postHeight, 1200);
+      })();
+    </script>
+    <script src="./museum-standalone.js?v=1776854473930"></script>
   </body>
 </html>
